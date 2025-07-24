@@ -114,7 +114,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="power",
-        name="Homevolt effekt",
+        name="Homevolt Power",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement="W",
         icon="mdi:battery-sync-outline",
@@ -122,7 +122,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="energy_produced",
-        name="Homevolt energi producerat",
+        name="Homevolt Energy Produced",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
@@ -131,7 +131,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="energy_consumed",
-        name="Homevolt energi konsumerat",
+        name="Homevolt Energy Consumed",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
