@@ -1,0 +1,43 @@
+# This workflow will build and attach a release asset.
+#
+# Docs: https://github.com/actions/checkout
+#       https://github.com/actions/create-release
+#       https://github.com/actions/upload-release-asset
+#       https://github.com/home-assistant/actions/tree/master/hassfest
+#       https://github.com/home-assistant/actions/tree/master/version
+#
+name: "Release"
+
+on:
+  release:
+    types:
+      - "published"
+
+jobs:
+  release:
+    name: "Release"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Get the repository name"
+        id: "repository_name"
+        uses: "merced-aurora/github-action-get-repository-name@v2"
+
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v4"
+
+      - name: "Get version"
+        id: "get_version"
+        uses: "home-assistant/actions/version@master"
+
+      - name: "Create zip file"
+        run: |
+          cd "${{ github.workspace }}/custom_components/${{ steps.repository_name.outputs.repository-name }}"
+          zip ${{ steps.repository_name.outputs.repository-name }}.zip -r .
+
+      - name: "Upload the zip file as a release asset"
+        uses: "actions/upload-release-asset@v1"
+        with:
+          upload_url: "${{ github.event.release.upload_url }}"
+          asset_path: "${{ github.workspace }}/custom_components/${{ steps.repository_name.outputs.repository-name }}/${{ steps.repository_name.outputs.repository-name }}.zip"
+          asset_name: "${{ steps.repository_name.outputs.repository-name }}.zip"
+          asset_content_type: "application/zip"

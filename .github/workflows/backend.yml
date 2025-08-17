@@ -1,0 +1,47 @@
+# This workflow will install Python dependencies, run linters, and validate manifests.
+#
+# Docs: https://github.com/actions/checkout
+#       https://github.com/actions/setup-python
+#       https://github.com/astral-sh/ruff-action
+#       https://github.com/home-assistant/actions/tree/master/hassfest
+#       https://github.com/ibiqlik/action-yamllint
+#
+name: Backend CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hassfest:
+    name: "hassfest"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v4"
+      - name: "Run hassfest"
+        uses: "home-assistant/actions/hassfest@master"
+
+  ruff:
+    name: "ruff"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v4"
+      - name: "Run ruff"
+        uses: "astral-sh/ruff-action@v1"
+        with:
+          args: "check ."
+
+  yamllint:
+    name: "yamllint"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v4"
+      - name: "Run yamllint"
+        uses: "ibiqlik/action-yamllint@v3"

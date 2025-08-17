@@ -19,14 +19,9 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
-    ATTR_AGGREGATED,
     ATTR_ECU_ID,
     ATTR_EMS,
     ATTR_EUID,
@@ -117,7 +112,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Dict[str, Any]]]):
+class HomevoltDataUpdateCoordinator(
+    DataUpdateCoordinator[Union[HomevoltData, Dict[str, Any]]]
+):
     """Class to manage fetching Homevolt data."""
 
     def __init__(
@@ -157,15 +154,21 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
                 auth = None
                 if self.username and self.password:
                     auth = aiohttp.BasicAuth(self.username, self.password)
-                
+
                 async with self.session.get(resource, auth=auth) as resp:
                     if resp.status != 200:
-                        raise UpdateFailed(f"Error communicating with API: {resp.status}")
+                        raise UpdateFailed(
+                            f"Error communicating with API: {resp.status}"
+                        )
                     return await resp.json()
         except asyncio.TimeoutError as error:
-            raise UpdateFailed(f"Timeout error fetching data from {resource}: {error}") from error
+            raise UpdateFailed(
+                f"Timeout error fetching data from {resource}: {error}"
+            ) from error
         except (aiohttp.ClientError, ValueError) as error:
-            raise UpdateFailed(f"Error fetching data from {resource}: {error}") from error
+            raise UpdateFailed(
+                f"Error fetching data from {resource}: {error}"
+            ) from error
 
     async def _async_update_data(self) -> HomevoltData:
         """Fetch data from all Homevolt API resources."""
@@ -180,7 +183,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
         valid_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                self.logger.error("Error fetching data from %s: %s", self.resources[i], result)
+                self.logger.error(
+                    "Error fetching data from %s: %s", self.resources[i], result
+                )
             else:
                 valid_results.append((self.hosts[i], result))
 
@@ -196,7 +201,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
         # If main system's data is not available, use the first valid result
         if main_data is None:
-            self.logger.warning("Main system data not available, using first valid result")
+            self.logger.warning(
+                "Main system data not available, using first valid result"
+            )
             main_data = valid_results[0][1]
 
         # Merge data from all systems
@@ -205,7 +212,11 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
         # Convert the merged dictionary data to a HomevoltData object
         return HomevoltData.from_dict(merged_dict_data)
 
-    def _merge_data(self, results: List[tuple[str, Dict[str, Any]]], main_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_data(
+        self,
+        results: List[tuple[str, Dict[str, Any]]],
+        main_data: Dict[str, Any],
+    ) -> Dict[str, Any]:
         """Merge data from multiple systems."""
         # Start with the main system's data
         merged_data = dict(main_data)
