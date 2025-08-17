@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
@@ -41,7 +42,7 @@ from .const import (
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
-from .models import HomevoltData
+from .models import HomevoltData, ScheduleEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -234,16 +235,79 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
         except (aiohttp.ClientError, ValueError) as error:
             raise UpdateFailed(f"Error fetching data from {resource}: {error}") from error
 
+    async def _fetch_schedule_data(self) -> List[ScheduleEntry]:
+        """Fetch schedule data from the main host."""
+        url = f"http://{self.main_host}/console.json"
+        command = "sched_list"
+        schedules = []
+
+        try:
+            form_data = aiohttp.FormData()
+            form_data.add_field('cmd', command)
+            auth = aiohttp.BasicAuth(self.username, self.password) if self.username and self.password else None
+
+            async with self.session.post(url, data=form_data, auth=auth) as response:
+                if response.status != 200:
+                    self.logger.error("Failed to fetch schedule data. Status: %s", response.status)
+                    return []
+                
+                response_text = await response.text()
+                schedules = self._parse_schedule_data(response_text)
+
+        except aiohttp.ClientError as e:
+            self.logger.error("Error fetching schedule data: %s", e)
+
+        return schedules
+
+    def _parse_schedule_data(self, response_text: str) -> List[ScheduleEntry]:
+        """Parse the schedule data from the text response."""
+        schedules = []
+        # Regex to capture each schedule line
+        pattern = re.compile(
+            r"id: (?P<id>\d+), type: (?P<type>.*?),"
+            r" from: (?P<from_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
+            r" to: (?P<to_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
+            r"(?: setpoint: (?P<setpoint>-?\d+))?,"
+            r"(?: offline: (?P<offline>true|false))?"
+            r"(?: max_discharge: (?P<max_discharge>.*?))?,"
+            r"(?: max_charge: (?P<max_charge>.*?))?$"
+            , re.MULTILINE
+        )
+
+        for line in response_text.splitlines():
+            match = pattern.match(line.strip())
+            if match:
+                data = match.groupdict()
+                schedule = ScheduleEntry(
+                    id=int(data["id"]),
+                    type=data["type"].strip(),
+                    from_time=data["from_time"],
+                    to_time=data["to_time"],
+                    setpoint=int(data["setpoint"]) if data["setpoint"] else None,
+                    offline=data["offline"] == "true" if data["offline"] else None,
+                    max_discharge=data["max_discharge"].strip() if data["max_discharge"] else None,
+                    max_charge=data["max_charge"].strip() if data["max_charge"] else None,
+                )
+                schedules.append(schedule)
+        return schedules
+
     async def _async_update_data(self) -> HomevoltData:
         """Fetch data from all Homevolt API resources."""
         if not self.resources:
             raise UpdateFailed("No resources configured")
 
-        # Fetch data from all resources in parallel
+        # Fetch sensor and schedule data in parallel
         tasks = [self._fetch_resource_data(resource) for resource in self.resources]
+        tasks.append(self._fetch_schedule_data())
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Process the results
+        # Separate schedule data from sensor data results
+        schedule_data = results.pop()
+        if isinstance(schedule_data, Exception):
+            self.logger.error("Error fetching schedule data: %s", schedule_data)
+            schedule_data = []
+
+        # Process the sensor data results
         valid_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
@@ -268,6 +332,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
         # Merge data from all systems
         merged_dict_data = self._merge_data(valid_results, main_data)
+
+        # Add schedule data to the merged data
+        merged_dict_data["schedules"] = schedule_data
 
         # Convert the merged dictionary data to a HomevoltData object
         return HomevoltData.from_dict(merged_dict_data)
