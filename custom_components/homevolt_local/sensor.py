@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Callable, Dict, Union
+from datetime import datetime, timezone
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -19,7 +20,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import HomevoltDataUpdateCoordinator
-from .models import HomevoltData, EmsDevice, SensorData
+from .models import HomevoltData, EmsDevice, SensorData, ScheduleEntry
 from .const import (
     ATTR_AGGREGATED,
     ATTR_AVAILABLE,
@@ -59,6 +60,20 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def get_current_schedule(data: HomevoltData) -> str:
+    """Get the current active schedule."""
+    now = datetime.now(timezone.utc)
+    for schedule in data.schedules:
+        try:
+            from_time = datetime.fromisoformat(schedule.from_time).replace(tzinfo=timezone.utc)
+            to_time = datetime.fromisoformat(schedule.to_time).replace(tzinfo=timezone.utc)
+            if from_time <= now < to_time:
+                return schedule.type
+        except (ValueError, TypeError):
+            continue
+    return "No active schedule"
+
+
 @dataclass(frozen=True, kw_only=True)
 class HomevoltSensorEntityDescription(SensorEntityDescription):
     """Describes Homevolt sensor entity."""
@@ -86,6 +101,15 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
             ATTR_EMS: [ems.__dict__ for ems in data.ems] if data.ems else [],
             ATTR_AGGREGATED: data.aggregated.__dict__ if data.aggregated else {},
             ATTR_SENSORS: [sensor.__dict__ for sensor in data.sensors] if data.sensors else [],
+        },
+    ),
+    HomevoltSensorEntityDescription(
+        key="current_schedule",
+        name="Homevolt Current Schedule",
+        icon="mdi:calendar-clock",
+        value_fn=get_current_schedule,
+        attrs_fn=lambda data: {
+            "schedules": [schedule.__dict__ for schedule in data.schedules]
         },
     ),
     HomevoltSensorEntityDescription(
