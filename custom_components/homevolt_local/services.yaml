@@ -1,0 +1,48 @@
+add_schedule:
+  name: Add Schedule
+  description: Adds a new schedule to the Homevolt battery.
+  target:
+    device:
+      integration: homevolt_local
+  fields:
+    mode:
+      name: Mode
+      description: The operational mode for the schedule.
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Idle"
+              value: 0
+            - label: "Charging"
+              value: 1
+            - label: "Discharging"
+              value: 2
+            - label: "Charging with grid setpoint"
+              value: 3
+            - label: "Discharging with grid setpoint"
+              value: 4
+            - label: "Grid discharging/charging"
+              value: 5
+    setpoint:
+      name: Setpoint
+      description: The power setpoint in watts.
+      required: true
+      example: 0
+      selector:
+        number:
+          min: -22000
+          max: 22000
+          unit_of_measurement: "W"
+    from_time:
+      name: From Time
+      description: The start datetime for the schedule.
+      required: true
+      selector:
+        datetime:
+    to_time:
+      name: To Time
+      description: The end datetime for the schedule.
+      required: true
+      selector:
+        datetime:
