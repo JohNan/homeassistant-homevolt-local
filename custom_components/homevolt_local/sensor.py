@@ -49,7 +49,6 @@ def _get_device_icon(data, orig_fn, device_idx):
 def _get_device_attrs(data, orig_fn, device_idx):
     return orig_fn(data, device_idx)
 
-
 @dataclass(frozen=True, kw_only=True)
 class HomevoltSensorEntityDescription(SensorEntityDescription):
     """Describes Homevolt sensor entity."""
