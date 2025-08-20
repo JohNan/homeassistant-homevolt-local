@@ -38,4 +38,6 @@ jobs:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./homevolt_local.zip
           asset_name: homevolt_local.zip
-          asset_content_type: application/zip
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./homevolt_local.zip
