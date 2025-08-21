@@ -1,8 +1,9 @@
 """Data models for the Homevolt Local integration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, ClassVar
 
 
 @dataclass
@@ -13,15 +14,18 @@ class ScheduleEntry:
     type: str
     from_time: str
     to_time: str
-    setpoint: Optional[int] = None
-    offline: Optional[bool] = None
-    max_discharge: Optional[str] = None
-    max_charge: Optional[str] = None
+    setpoint: int | None = None
+    offline: bool | None = None
+    max_discharge: str | None = None
+    max_charge: str | None = None
 
 
 @dataclass
 class EmsInfo:
     """Model for EMS information."""
+
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsInfo]]
 
     protocol_version: int
     fw_version: str
@@ -33,6 +37,9 @@ class EmsInfo:
 class BmsInfo:
     """Model for BMS information."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], BmsInfo]]
+
     fw_version: str
     serial_number: str
     rated_cap: int
@@ -43,6 +50,9 @@ class BmsInfo:
 class InvInfo:
     """Model for inverter information."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], InvInfo]]
+
     fw_version: str
     serial_number: str
 
@@ -50,6 +60,9 @@ class InvInfo:
 @dataclass
 class EmsConfig:
     """Model for EMS configuration."""
+
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsConfig]]
 
     grid_code_preset: int
     grid_code_preset_str: str
@@ -60,12 +73,18 @@ class EmsConfig:
 class InvConfig:
     """Model for inverter configuration."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], InvConfig]]
+
     ffr_fstart_freq: int
 
 
 @dataclass
 class EmsControl:
     """Model for EMS control."""
+
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsControl]]
 
     mode_sel: int
     pwr_ref: int
@@ -87,15 +106,18 @@ class EmsControl:
 class EmsData:
     """Model for EMS data."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsData]]
+
     timestamp_ms: int
     state: int
     state_str: str
     info: int
-    info_str: List[str]
+    info_str: list[str]
     warning: int
-    warning_str: List[str]
+    warning_str: list[str]
     alarm: int
-    alarm_str: List[str]
+    alarm_str: list[str]
     phase_angle: int
     frequency: int
     phase_seq: int
@@ -114,13 +136,16 @@ class EmsData:
 class BmsData:
     """Model for BMS data."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], BmsData]]
+
     energy_avail: int
     cycle_count: int
     soc: int
     state: int
     state_str: str
     alarm: int
-    alarm_str: List[str]
+    alarm_str: list[str]
     tmin: int
     tmax: int
 
@@ -128,6 +153,9 @@ class BmsData:
 @dataclass
 class EmsPrediction:
     """Model for EMS prediction."""
+
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsPrediction]]
 
     avail_ch_pwr: int
     avail_di_pwr: int
@@ -143,6 +171,9 @@ class EmsPrediction:
 class EmsVoltage:
     """Model for EMS voltage."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsVoltage]]
+
     l1: int
     l2: int
     l3: int
@@ -155,6 +186,9 @@ class EmsVoltage:
 class EmsCurrent:
     """Model for EMS current."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsCurrent]]
+
     l1: int
     l2: int
     l3: int
@@ -164,6 +198,9 @@ class EmsCurrent:
 class EmsAggregate:
     """Model for EMS aggregate."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsAggregate]]
+
     imported_kwh: float
     exported_kwh: float
 
@@ -171,6 +208,9 @@ class EmsAggregate:
 @dataclass
 class PhaseData:
     """Model for phase data."""
+
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], PhaseData]]
 
     voltage: float
     amp: float
@@ -182,6 +222,9 @@ class PhaseData:
 class SensorData:
     """Model for sensor data."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], SensorData]]
+
     type: str
     node_id: int
     euid: str
@@ -190,7 +233,7 @@ class SensorData:
     rssi: int
     average_rssi: float
     pdr: float
-    phase: List[PhaseData]
+    phase: list[PhaseData]
     frequency: int
     total_power: int
     energy_imported: float
@@ -202,6 +245,9 @@ class SensorData:
 class EmsDevice:
     """Model for an EMS device."""
 
+    # Type-only declaration to satisfy static type checkers; actual implementation is attached dynamically.
+    from_dict: ClassVar[Callable[[dict[str, Any]], EmsDevice]]
+
     ecu_id: int
     ecu_host: str
     ecu_version: str
@@ -210,13 +256,13 @@ class EmsDevice:
     op_state: int
     op_state_str: str
     ems_info: EmsInfo
-    bms_info: List[BmsInfo]
+    bms_info: list[BmsInfo]
     inv_info: InvInfo
     ems_config: EmsConfig
     inv_config: InvConfig
     ems_control: EmsControl
     ems_data: EmsData
-    bms_data: List[BmsData]
+    bms_data: list[BmsData]
     ems_prediction: EmsPrediction
     ems_voltage: EmsVoltage
     ems_current: EmsCurrent
@@ -230,13 +276,13 @@ class HomevoltData:
 
     type: str = field(metadata={"json_field_name": "$type"})
     ts: int
-    ems: List[EmsDevice]
+    ems: list[EmsDevice]
     aggregated: EmsDevice
-    sensors: List[SensorData]
-    schedules: List[ScheduleEntry] = field(default_factory=list)
+    sensors: list[SensorData]
+    schedules: list[ScheduleEntry] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> HomevoltData:
+    def from_dict(cls, data: dict[str, Any]) -> HomevoltData:
         """Create a HomevoltData object from a dictionary."""
         return cls(
             type=data.get("$type", ""),
@@ -251,58 +297,52 @@ class HomevoltData:
 # Add from_dict methods to all dataclasses
 def _add_from_dict_methods():
     """Add from_dict methods to all dataclasses."""
-    
-    @staticmethod
-    def ems_info_from_dict(data: Dict[str, Any]) -> EmsInfo:
+
+    def ems_info_from_dict(data: dict[str, Any]) -> EmsInfo:
         return EmsInfo(
             protocol_version=data.get("protocol_version", 0),
             fw_version=data.get("fw_version", ""),
             rated_capacity=data.get("rated_capacity", 0),
             rated_power=data.get("rated_power", 0),
         )
-    
+
     EmsInfo.from_dict = ems_info_from_dict
-    
-    @staticmethod
-    def bms_info_from_dict(data: Dict[str, Any]) -> BmsInfo:
+
+    def bms_info_from_dict(data: dict[str, Any]) -> BmsInfo:
         return BmsInfo(
             fw_version=data.get("fw_version", ""),
             serial_number=data.get("serial_number", ""),
             rated_cap=data.get("rated_cap", 0),
             id=data.get("id", 0),
         )
-    
+
     BmsInfo.from_dict = bms_info_from_dict
-    
-    @staticmethod
-    def inv_info_from_dict(data: Dict[str, Any]) -> InvInfo:
+
+    def inv_info_from_dict(data: dict[str, Any]) -> InvInfo:
         return InvInfo(
             fw_version=data.get("fw_version", ""),
             serial_number=data.get("serial_number", ""),
         )
-    
+
     InvInfo.from_dict = inv_info_from_dict
-    
-    @staticmethod
-    def ems_config_from_dict(data: Dict[str, Any]) -> EmsConfig:
+
+    def ems_config_from_dict(data: dict[str, Any]) -> EmsConfig:
         return EmsConfig(
             grid_code_preset=data.get("grid_code_preset", 0),
             grid_code_preset_str=data.get("grid_code_preset_str", ""),
             control_timeout=data.get("control_timeout", False),
         )
-    
+
     EmsConfig.from_dict = ems_config_from_dict
-    
-    @staticmethod
-    def inv_config_from_dict(data: Dict[str, Any]) -> InvConfig:
+
+    def inv_config_from_dict(data: dict[str, Any]) -> InvConfig:
         return InvConfig(
             ffr_fstart_freq=data.get("ffr_fstart_freq", 0),
         )
-    
+
     InvConfig.from_dict = inv_config_from_dict
-    
-    @staticmethod
-    def ems_control_from_dict(data: Dict[str, Any]) -> EmsControl:
+
+    def ems_control_from_dict(data: dict[str, Any]) -> EmsControl:
         return EmsControl(
             mode_sel=data.get("mode_sel", 0),
             pwr_ref=data.get("pwr_ref", 0),
@@ -319,11 +359,10 @@ def _add_from_dict_methods():
             data_usage=data.get("data_usage", 0),
             allow_dfu=data.get("allow_dfu", False),
         )
-    
+
     EmsControl.from_dict = ems_control_from_dict
-    
-    @staticmethod
-    def ems_data_from_dict(data: Dict[str, Any]) -> EmsData:
+
+    def ems_data_from_dict(data: dict[str, Any]) -> EmsData:
         return EmsData(
             timestamp_ms=data.get("timestamp_ms", 0),
             state=data.get("state", 0),
@@ -347,11 +386,10 @@ def _add_from_dict_methods():
             freq_res_state=data.get("freq_res_state", 0),
             soc_avg=data.get("soc_avg", 0),
         )
-    
+
     EmsData.from_dict = ems_data_from_dict
-    
-    @staticmethod
-    def bms_data_from_dict(data: Dict[str, Any]) -> BmsData:
+
+    def bms_data_from_dict(data: dict[str, Any]) -> BmsData:
         return BmsData(
             energy_avail=data.get("energy_avail", 0),
             cycle_count=data.get("cycle_count", 0),
@@ -363,11 +401,10 @@ def _add_from_dict_methods():
             tmin=data.get("tmin", 0),
             tmax=data.get("tmax", 0),
         )
-    
+
     BmsData.from_dict = bms_data_from_dict
-    
-    @staticmethod
-    def ems_prediction_from_dict(data: Dict[str, Any]) -> EmsPrediction:
+
+    def ems_prediction_from_dict(data: dict[str, Any]) -> EmsPrediction:
         return EmsPrediction(
             avail_ch_pwr=data.get("avail_ch_pwr", 0),
             avail_di_pwr=data.get("avail_di_pwr", 0),
@@ -378,11 +415,10 @@ def _add_from_dict_methods():
             avail_group_fuse_ch_pwr=data.get("avail_group_fuse_ch_pwr", 0),
             avail_group_fuse_di_pwr=data.get("avail_group_fuse_di_pwr", 0),
         )
-    
+
     EmsPrediction.from_dict = ems_prediction_from_dict
-    
-    @staticmethod
-    def ems_voltage_from_dict(data: Dict[str, Any]) -> EmsVoltage:
+
+    def ems_voltage_from_dict(data: dict[str, Any]) -> EmsVoltage:
         return EmsVoltage(
             l1=data.get("l1", 0),
             l2=data.get("l2", 0),
@@ -391,41 +427,37 @@ def _add_from_dict_methods():
             l2_l3=data.get("l2_l3", 0),
             l3_l1=data.get("l3_l1", 0),
         )
-    
+
     EmsVoltage.from_dict = ems_voltage_from_dict
-    
-    @staticmethod
-    def ems_current_from_dict(data: Dict[str, Any]) -> EmsCurrent:
+
+    def ems_current_from_dict(data: dict[str, Any]) -> EmsCurrent:
         return EmsCurrent(
             l1=data.get("l1", 0),
             l2=data.get("l2", 0),
             l3=data.get("l3", 0),
         )
-    
+
     EmsCurrent.from_dict = ems_current_from_dict
-    
-    @staticmethod
-    def ems_aggregate_from_dict(data: Dict[str, Any]) -> EmsAggregate:
+
+    def ems_aggregate_from_dict(data: dict[str, Any]) -> EmsAggregate:
         return EmsAggregate(
             imported_kwh=data.get("imported_kwh", 0.0),
             exported_kwh=data.get("exported_kwh", 0.0),
         )
-    
+
     EmsAggregate.from_dict = ems_aggregate_from_dict
-    
-    @staticmethod
-    def phase_data_from_dict(data: Dict[str, Any]) -> PhaseData:
+
+    def phase_data_from_dict(data: dict[str, Any]) -> PhaseData:
         return PhaseData(
             voltage=data.get("voltage", 0.0),
             amp=data.get("amp", 0.0),
             power=data.get("power", 0.0),
             pf=data.get("pf", 0.0),
         )
-    
+
     PhaseData.from_dict = phase_data_from_dict
-    
-    @staticmethod
-    def sensor_data_from_dict(data: Dict[str, Any]) -> SensorData:
+
+    def sensor_data_from_dict(data: dict[str, Any]) -> SensorData:
         return SensorData(
             type=data.get("type", ""),
             node_id=data.get("node_id", 0),
@@ -442,11 +474,10 @@ def _add_from_dict_methods():
             energy_exported=data.get("energy_exported", 0.0),
             timestamp=data.get("timestamp", 0),
         )
-    
+
     SensorData.from_dict = sensor_data_from_dict
-    
-    @staticmethod
-    def ems_device_from_dict(data: Dict[str, Any]) -> EmsDevice:
+
+    def ems_device_from_dict(data: dict[str, Any]) -> EmsDevice:
         if not data:
             # Return a default EmsDevice with empty values
             return EmsDevice(
@@ -463,29 +494,61 @@ def _add_from_dict_methods():
                 ems_config=EmsConfig(grid_code_preset=0, grid_code_preset_str="", control_timeout=False),
                 inv_config=InvConfig(ffr_fstart_freq=0),
                 ems_control=EmsControl(
-                    mode_sel=0, pwr_ref=0, freq_res_mode=0, freq_res_pwr_fcr_n=0,
-                    freq_res_pwr_fcr_d_up=0, freq_res_pwr_fcr_d_down=0, freq_res_pwr_ref_ffr=0,
-                    act_pwr_ch_lim=0, act_pwr_di_lim=0, react_pwr_pos_limit=0, react_pwr_neg_limit=0,
-                    freq_test_seq=0, data_usage=0, allow_dfu=False
+                    mode_sel=0,
+                    pwr_ref=0,
+                    freq_res_mode=0,
+                    freq_res_pwr_fcr_n=0,
+                    freq_res_pwr_fcr_d_up=0,
+                    freq_res_pwr_fcr_d_down=0,
+                    freq_res_pwr_ref_ffr=0,
+                    act_pwr_ch_lim=0,
+                    act_pwr_di_lim=0,
+                    react_pwr_pos_limit=0,
+                    react_pwr_neg_limit=0,
+                    freq_test_seq=0,
+                    data_usage=0,
+                    allow_dfu=False,
                 ),
                 ems_data=EmsData(
-                    timestamp_ms=0, state=0, state_str="", info=0, info_str=[], warning=0,
-                    warning_str=[], alarm=0, alarm_str=[], phase_angle=0, frequency=0,
-                    phase_seq=0, power=0, apparent_power=0, reactive_power=0, energy_produced=0,
-                    energy_consumed=0, sys_temp=0, avail_cap=0, freq_res_state=0, soc_avg=0
+                    timestamp_ms=0,
+                    state=0,
+                    state_str="",
+                    info=0,
+                    info_str=[],
+                    warning=0,
+                    warning_str=[],
+                    alarm=0,
+                    alarm_str=[],
+                    phase_angle=0,
+                    frequency=0,
+                    phase_seq=0,
+                    power=0,
+                    apparent_power=0,
+                    reactive_power=0,
+                    energy_produced=0,
+                    energy_consumed=0,
+                    sys_temp=0,
+                    avail_cap=0,
+                    freq_res_state=0,
+                    soc_avg=0,
                 ),
                 bms_data=[],
                 ems_prediction=EmsPrediction(
-                    avail_ch_pwr=0, avail_di_pwr=0, avail_ch_energy=0, avail_di_energy=0,
-                    avail_inv_ch_pwr=0, avail_inv_di_pwr=0, avail_group_fuse_ch_pwr=0,
-                    avail_group_fuse_di_pwr=0
+                    avail_ch_pwr=0,
+                    avail_di_pwr=0,
+                    avail_ch_energy=0,
+                    avail_di_energy=0,
+                    avail_inv_ch_pwr=0,
+                    avail_inv_di_pwr=0,
+                    avail_group_fuse_ch_pwr=0,
+                    avail_group_fuse_di_pwr=0,
                 ),
                 ems_voltage=EmsVoltage(l1=0, l2=0, l3=0, l1_l2=0, l2_l3=0, l3_l1=0),
                 ems_current=EmsCurrent(l1=0, l2=0, l3=0),
                 ems_aggregate=EmsAggregate(imported_kwh=0.0, exported_kwh=0.0),
-                error_cnt=0
+                error_cnt=0,
             )
-        
+
         return EmsDevice(
             ecu_id=data.get("ecu_id", 0),
             ecu_host=data.get("ecu_host", ""),
@@ -494,36 +557,109 @@ def _add_from_dict_methods():
             error_str=data.get("error_str", ""),
             op_state=data.get("op_state", 0),
             op_state_str=data.get("op_state_str", ""),
-            ems_info=EmsInfo.from_dict(data.get("ems_info", {})) if "ems_info" in data else EmsInfo(protocol_version=0, fw_version="", rated_capacity=0, rated_power=0),
-            bms_info=[BmsInfo.from_dict(bms) for bms in data.get("bms_info", [])],
-            inv_info=InvInfo.from_dict(data.get("inv_info", {})) if "inv_info" in data else InvInfo(fw_version="", serial_number=""),
-            ems_config=EmsConfig.from_dict(data.get("ems_config", {})) if "ems_config" in data else EmsConfig(grid_code_preset=0, grid_code_preset_str="", control_timeout=False),
-            inv_config=InvConfig.from_dict(data.get("inv_config", {})) if "inv_config" in data else InvConfig(ffr_fstart_freq=0),
-            ems_control=EmsControl.from_dict(data.get("ems_control", {})) if "ems_control" in data else EmsControl(
-                mode_sel=0, pwr_ref=0, freq_res_mode=0, freq_res_pwr_fcr_n=0,
-                freq_res_pwr_fcr_d_up=0, freq_res_pwr_fcr_d_down=0, freq_res_pwr_ref_ffr=0,
-                act_pwr_ch_lim=0, act_pwr_di_lim=0, react_pwr_pos_limit=0, react_pwr_neg_limit=0,
-                freq_test_seq=0, data_usage=0, allow_dfu=False
+            ems_info=(
+                EmsInfo.from_dict(data.get("ems_info", {}))
+                if "ems_info" in data
+                else EmsInfo(protocol_version=0, fw_version="", rated_capacity=0, rated_power=0)
             ),
-            ems_data=EmsData.from_dict(data.get("ems_data", {})) if "ems_data" in data else EmsData(
-                timestamp_ms=0, state=0, state_str="", info=0, info_str=[], warning=0,
-                warning_str=[], alarm=0, alarm_str=[], phase_angle=0, frequency=0,
-                phase_seq=0, power=0, apparent_power=0, reactive_power=0, energy_produced=0,
-                energy_consumed=0, sys_temp=0, avail_cap=0, freq_res_state=0, soc_avg=0
+            bms_info=[BmsInfo.from_dict(bms) for bms in data.get("bms_info", [])],
+            inv_info=(
+                InvInfo.from_dict(data.get("inv_info", {}))
+                if "inv_info" in data
+                else InvInfo(fw_version="", serial_number="")
+            ),
+            ems_config=(
+                EmsConfig.from_dict(data.get("ems_config", {}))
+                if "ems_config" in data
+                else EmsConfig(grid_code_preset=0, grid_code_preset_str="", control_timeout=False)
+            ),
+            inv_config=(
+                InvConfig.from_dict(data.get("inv_config", {}))
+                if "inv_config" in data
+                else InvConfig(ffr_fstart_freq=0)
+            ),
+            ems_control=(
+                EmsControl.from_dict(data.get("ems_control", {}))
+                if "ems_control" in data
+                else EmsControl(
+                    mode_sel=0,
+                    pwr_ref=0,
+                    freq_res_mode=0,
+                    freq_res_pwr_fcr_n=0,
+                    freq_res_pwr_fcr_d_up=0,
+                    freq_res_pwr_fcr_d_down=0,
+                    freq_res_pwr_ref_ffr=0,
+                    act_pwr_ch_lim=0,
+                    act_pwr_di_lim=0,
+                    react_pwr_pos_limit=0,
+                    react_pwr_neg_limit=0,
+                    freq_test_seq=0,
+                    data_usage=0,
+                    allow_dfu=False,
+                )
+            ),
+            ems_data=(
+                EmsData.from_dict(data.get("ems_data", {}))
+                if "ems_data" in data
+                else EmsData(
+                    timestamp_ms=0,
+                    state=0,
+                    state_str="",
+                    info=0,
+                    info_str=[],
+                    warning=0,
+                    warning_str=[],
+                    alarm=0,
+                    alarm_str=[],
+                    phase_angle=0,
+                    frequency=0,
+                    phase_seq=0,
+                    power=0,
+                    apparent_power=0,
+                    reactive_power=0,
+                    energy_produced=0,
+                    energy_consumed=0,
+                    sys_temp=0,
+                    avail_cap=0,
+                    freq_res_state=0,
+                    soc_avg=0,
+                )
             ),
             bms_data=[BmsData.from_dict(bms) for bms in data.get("bms_data", [])],
-            ems_prediction=EmsPrediction.from_dict(data.get("ems_prediction", {})) if "ems_prediction" in data else EmsPrediction(
-                avail_ch_pwr=0, avail_di_pwr=0, avail_ch_energy=0, avail_di_energy=0,
-                avail_inv_ch_pwr=0, avail_inv_di_pwr=0, avail_group_fuse_ch_pwr=0,
-                avail_group_fuse_di_pwr=0
+            ems_prediction=(
+                EmsPrediction.from_dict(data.get("ems_prediction", {}))
+                if "ems_prediction" in data
+                else EmsPrediction(
+                    avail_ch_pwr=0,
+                    avail_di_pwr=0,
+                    avail_ch_energy=0,
+                    avail_di_energy=0,
+                    avail_inv_ch_pwr=0,
+                    avail_inv_di_pwr=0,
+                    avail_group_fuse_ch_pwr=0,
+                    avail_group_fuse_di_pwr=0,
+                )
             ),
-            ems_voltage=EmsVoltage.from_dict(data.get("ems_voltage", {})) if "ems_voltage" in data else EmsVoltage(l1=0, l2=0, l3=0, l1_l2=0, l2_l3=0, l3_l1=0),
-            ems_current=EmsCurrent.from_dict(data.get("ems_current", {})) if "ems_current" in data else EmsCurrent(l1=0, l2=0, l3=0),
-            ems_aggregate=EmsAggregate.from_dict(data.get("ems_aggregate", {})) if "ems_aggregate" in data else EmsAggregate(imported_kwh=0.0, exported_kwh=0.0),
+            ems_voltage=(
+                EmsVoltage.from_dict(data.get("ems_voltage", {}))
+                if "ems_voltage" in data
+                else EmsVoltage(l1=0, l2=0, l3=0, l1_l2=0, l2_l3=0, l3_l1=0)
+            ),
+            ems_current=(
+                EmsCurrent.from_dict(data.get("ems_current", {}))
+                if "ems_current" in data
+                else EmsCurrent(l1=0, l2=0, l3=0)
+            ),
+            ems_aggregate=(
+                EmsAggregate.from_dict(data.get("ems_aggregate", {}))
+                if "ems_aggregate" in data
+                else EmsAggregate(imported_kwh=0.0, exported_kwh=0.0)
+            ),
             error_cnt=data.get("error_cnt", 0),
         )
-    
+
     EmsDevice.from_dict = ems_device_from_dict
+    return
 
 
 # Initialize the from_dict methods
