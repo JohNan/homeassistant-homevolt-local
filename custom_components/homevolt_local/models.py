@@ -6,6 +6,20 @@ from typing import Any, Dict, List, Optional, Union
 
 
 @dataclass
+class ScheduleEntry:
+    """Model for a single schedule entry."""
+
+    id: int
+    type: str
+    from_time: str
+    to_time: str
+    setpoint: Optional[int] = None
+    offline: Optional[bool] = None
+    max_discharge: Optional[str] = None
+    max_charge: Optional[str] = None
+
+
+@dataclass
 class EmsInfo:
     """Model for EMS information."""
 
@@ -219,6 +233,7 @@ class HomevoltData:
     ems: List[EmsDevice]
     aggregated: EmsDevice
     sensors: List[SensorData]
+    schedules: List[ScheduleEntry] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> HomevoltData:
@@ -229,6 +244,7 @@ class HomevoltData:
             ems=[EmsDevice.from_dict(ems) for ems in data.get("ems", [])],
             aggregated=EmsDevice.from_dict(data.get("aggregated", {})),
             sensors=[SensorData.from_dict(sensor) for sensor in data.get("sensors", [])],
+            schedules=data.get("schedules", []),  # Will be populated by the coordinator
         )
 
 

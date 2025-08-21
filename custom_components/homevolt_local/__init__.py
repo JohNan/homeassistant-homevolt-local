@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
@@ -17,8 +18,9 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
     Platform,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -40,7 +42,7 @@ from .const import (
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
-from .models import HomevoltData
+from .models import HomevoltData, ScheduleEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,6 +108,72 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    async def async_add_schedule(call: ServiceCall) -> None:
+        """Handle the service call to add a schedule."""
+        device_registry = async_get_device_registry(hass)
+        device_id = call.data.get("device_id")
+
+        if not device_id:
+            _LOGGER.error("No device_id provided")
+            return
+
+        device_entry = device_registry.async_get(device_id)
+        if not device_entry:
+            _LOGGER.error("Device not found: %s", device_id)
+            return
+
+        # Find the config entry associated with this device
+        config_entry_id = next(iter(device_entry.config_entries), None)
+        if not config_entry_id:
+            _LOGGER.error("Device %s is not associated with a config entry", device_id)
+            return
+
+        config_entry = hass.config_entries.async_get_entry(config_entry_id)
+        if not config_entry:
+            _LOGGER.error("Config entry not found for device %s", device_id)
+            return
+
+        # Extract connection details from the config entry
+        host = config_entry.data.get(CONF_MAIN_HOST)
+        username = (config_entry.data.get(CONF_USERNAME) or "").strip() or None
+        password = (config_entry.data.get(CONF_PASSWORD) or "").strip() or None
+        verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
+
+        if not host:
+            _LOGGER.error("No host found for device %s", device_id)
+            return
+
+        mode = call.data["mode"]
+        setpoint = call.data["setpoint"]
+        from_time = call.data["from_time"].strftime("%Y-%m-%dT%H:%M:%S")
+        to_time = call.data["to_time"].strftime("%Y-%m-%dT%H:%M:%S")
+
+        command = f"sched_add {mode} --setpoint {setpoint} --from={from_time} --to={to_time}"
+        url = f"http://{host}/console.json"
+
+        try:
+            session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+            form_data = aiohttp.FormData()
+            form_data.add_field('cmd', command)
+
+            auth = aiohttp.BasicAuth(username, password) if username and password else None
+
+            async with session.post(url, data=form_data, auth=auth) as response:
+                response_text = await response.text()
+                if response.status == 200:
+                    _LOGGER.info("Successfully sent command to %s: %s", host, command)
+                else:
+                    _LOGGER.error(
+                        "Failed to send command to %s. Status: %s, Response: %s",
+                        host,
+                        response.status,
+                        response_text,
+                    )
+        except aiohttp.ClientError as e:
+            _LOGGER.error("Error sending command to %s: %s", host, e)
+
+    hass.services.async_register(DOMAIN, "add_schedule", async_add_schedule)
+
     return True
 
 
@@ -121,18 +189,18 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
     """Class to manage fetching Homevolt data."""
 
     def __init__(
-        self,
-        hass: HomeAssistant,
-        logger: logging.Logger,
-        entry_id: str,
-        resources: List[str],
-        hosts: List[str],
-        main_host: str,
-        username: Optional[str],
-        password: Optional[str],
-        session: aiohttp.ClientSession,
-        update_interval: timedelta,
-        timeout: int,
+            self,
+            hass: HomeAssistant,
+            logger: logging.Logger,
+            entry_id: str,
+            resources: List[str],
+            hosts: List[str],
+            main_host: str,
+            username: Optional[str],
+            password: Optional[str],
+            session: aiohttp.ClientSession,
+            update_interval: timedelta,
+            timeout: int,
     ) -> None:
         """Initialize."""
         self.entry_id = entry_id
@@ -157,7 +225,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
                 auth = None
                 if self.username and self.password:
                     auth = aiohttp.BasicAuth(self.username, self.password)
-                
+
                 async with self.session.get(resource, auth=auth) as resp:
                     if resp.status != 200:
                         raise UpdateFailed(f"Error communicating with API: {resp.status}")
@@ -167,16 +235,79 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
         except (aiohttp.ClientError, ValueError) as error:
             raise UpdateFailed(f"Error fetching data from {resource}: {error}") from error
 
+    async def _fetch_schedule_data(self) -> List[ScheduleEntry]:
+        """Fetch schedule data from the main host."""
+        url = f"http://{self.main_host}/console.json"
+        command = "sched_list"
+        schedules = []
+
+        try:
+            form_data = aiohttp.FormData()
+            form_data.add_field('cmd', command)
+            auth = aiohttp.BasicAuth(self.username, self.password) if self.username and self.password else None
+
+            async with self.session.post(url, data=form_data, auth=auth) as response:
+                if response.status != 200:
+                    self.logger.error("Failed to fetch schedule data. Status: %s", response.status)
+                    return []
+
+                response_text = await response.text()
+                schedules = self._parse_schedule_data(response_text)
+
+        except aiohttp.ClientError as e:
+            self.logger.error("Error fetching schedule data: %s", e)
+
+        return schedules
+
+    def _parse_schedule_data(self, response_text: str) -> List[ScheduleEntry]:
+        """Parse the schedule data from the text response."""
+        schedules = []
+        # Regex to capture each schedule line
+        pattern = re.compile(
+            r"id: (?P<id>\d+), type: (?P<type>.*?),"
+            r" from: (?P<from_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
+            r" to: (?P<to_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
+            r"(?: setpoint: (?P<setpoint>-?\d+))?,"
+            r"(?: offline: (?P<offline>true|false))?"
+            r"(?: max_discharge: (?P<max_discharge>.*?))?,"
+            r"(?: max_charge: (?P<max_charge>.*?))?$",
+            re.MULTILINE
+        )
+
+        for line in response_text.splitlines():
+            match = pattern.match(line.strip())
+            if match:
+                data = match.groupdict()
+                schedule = ScheduleEntry(
+                    id=int(data["id"]),
+                    type=data["type"].strip(),
+                    from_time=data["from_time"],
+                    to_time=data["to_time"],
+                    setpoint=int(data["setpoint"]) if data["setpoint"] else None,
+                    offline=data["offline"] == "true" if data["offline"] else None,
+                    max_discharge=data["max_discharge"].strip() if data["max_discharge"] else None,
+                    max_charge=data["max_charge"].strip() if data["max_charge"] else None,
+                )
+                schedules.append(schedule)
+        return schedules
+
     async def _async_update_data(self) -> HomevoltData:
         """Fetch data from all Homevolt API resources."""
         if not self.resources:
             raise UpdateFailed("No resources configured")
 
-        # Fetch data from all resources in parallel
+        # Fetch sensor and schedule data in parallel
         tasks = [self._fetch_resource_data(resource) for resource in self.resources]
+        tasks.append(self._fetch_schedule_data())
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Process the results
+        # Separate schedule data from sensor data results
+        schedule_data = results.pop()
+        if isinstance(schedule_data, Exception):
+            self.logger.error("Error fetching schedule data: %s", schedule_data)
+            schedule_data = []
+
+        # Process the sensor data results
         valid_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
@@ -201,6 +332,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
         # Merge data from all systems
         merged_dict_data = self._merge_data(valid_results, main_data)
+
+        # Add schedule data to the merged data
+        merged_dict_data["schedules"] = schedule_data
 
         # Convert the merged dictionary data to a HomevoltData object
         return HomevoltData.from_dict(merged_dict_data)
