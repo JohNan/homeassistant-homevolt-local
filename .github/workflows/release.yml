@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF##*/v}" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" custom_components/homevolt_local/manifest.json
+
+      - name: Verify manifest version
+        run: |
+          grep '"version":' custom_components/homevolt_local/manifest.json
+
+      - name: Create zip file
+        working-directory: custom_components/homevolt_local
+        run: zip -r ../../homevolt_local.zip .
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./homevolt_local.zip
+          asset_name: homevolt_local.zip
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./homevolt_local.zip

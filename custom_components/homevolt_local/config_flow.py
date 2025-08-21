@@ -2,28 +2,10 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
-from urllib.parse import urlparse
 
 import aiohttp
 import voluptuous as vol
-
-class CannotConnect(Exception):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(Exception):
-    """Error to indicate there is invalid auth."""
-
-
-class InvalidResource(Exception):
-    """Error to indicate the resource URL is invalid."""
-
-
-class DuplicateHost(Exception):
-    """Error to indicate the host is already in the list."""
-
 from homeassistant import config_entries
 from homeassistant.const import (
     CONF_PASSWORD,
@@ -41,7 +23,6 @@ from .const import (
     CONF_HOST,
     CONF_HOSTS,
     CONF_MAIN_HOST,
-    CONF_RESOURCE,
     CONF_RESOURCES,
     DEFAULT_RESOURCE_PATH,
     DEFAULT_SCAN_INTERVAL,
@@ -50,6 +31,23 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class CannotConnect(Exception):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidAuth(Exception):
+    """Error to indicate there is invalid auth."""
+
+
+class InvalidResource(Exception):
+    """Error to indicate the resource URL is invalid."""
+
+
+class DuplicateHost(Exception):
+    """Error to indicate the host is already in the list."""
+
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -88,58 +86,66 @@ def construct_resource_url(host: str) -> str:
     return resource_url
 
 
+async def _validate_api_connection(
+    hass: HomeAssistant,
+    resource_url: str,
+    username: str,
+    password: str,
+    verify_ssl: bool,
+) -> None:
+    """Validate the API connection."""
+    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+    try:
+        auth = aiohttp.BasicAuth(username, password)
+        async with session.get(resource_url, auth=auth) as response:
+            if response.status == 401:
+                raise InvalidAuth("Invalid authentication")
+            if response.status != 200:
+                raise CannotConnect(f"Invalid response from API: {response.status}")
+
+            try:
+                response_data = await response.json()
+            except ValueError as err:
+                raise CannotConnect("Invalid response format (not JSON)") from err
+
+            # Check if the response has the expected structure
+            if "aggregated" not in response_data:
+                raise CannotConnect(
+                    "Invalid API response format: 'aggregated' key missing"
+                )
+
+    except aiohttp.ClientError as err:
+        raise CannotConnect(f"Connection error: {err}") from err
+
+
 async def validate_host(
-    hass: HomeAssistant, 
-    host: str, 
-    username: str = None, 
-    password: str = None, 
+    hass: HomeAssistant,
+    host: str,
+    username: str | None = None,
+    password: str | None = None,
     verify_ssl: bool = True,
-    existing_hosts: list[str] = None
+    existing_hosts: list[str] | None = None,
 ) -> dict[str, Any]:
     """Validate a host and return its resource URL."""
-    # Validate the host
     if not is_valid_host(host):
         raise InvalidResource("Invalid IP or hostname format")
 
-    # Check if the host is already in the list
     if existing_hosts and host in existing_hosts:
         raise DuplicateHost("This IP address or hostname is already in the list")
 
-    # Construct the resource URL
     resource_url = construct_resource_url(host)
 
-    # If username and password are provided, validate the connection
     if username and password:
-        session = async_get_clientsession(hass, verify_ssl=verify_ssl)
         try:
-            auth = aiohttp.BasicAuth(username, password)
-            async with session.get(resource_url, auth=auth) as response:
-                if response.status == 401:
-                    raise InvalidAuth("Invalid authentication")
-                elif response.status != 200:
-                    raise CannotConnect(f"Invalid response from API: {response.status}")
-
-                try:
-                    response_data = await response.json()
-                except ValueError:
-                    raise CannotConnect("Invalid response format (not JSON)")
-
-                # Check if the response has the expected structure
-                if "aggregated" not in response_data:
-                    raise CannotConnect("Invalid API response format: 'aggregated' key missing")
-
-        except aiohttp.ClientError as err:
-            raise CannotConnect(f"Connection error: {err}")
-        except (InvalidAuth, CannotConnect, InvalidResource, DuplicateHost) as err:
+            await _validate_api_connection(
+                hass, resource_url, username, password, verify_ssl
+            )
+        except (InvalidAuth, CannotConnect, InvalidResource, DuplicateHost):
             raise
         except Exception as err:
             raise Exception(f"Error validating API: {err}") from err
 
-    # Return the host and resource URL
-    return {
-        "host": host,
-        "resource_url": resource_url
-    }
+    return {"host": host, "resource_url": resource_url}
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -152,19 +158,14 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     # Validate the host
     host_info = await validate_host(
-        hass, 
-        host, 
-        username, 
-        password, 
-        verify_ssl,
-        existing_hosts
+        hass, host, username, password, verify_ssl, existing_hosts
     )
 
     # Return info that you want to store in the config entry.
     return {
-        "title": "Homevolt Local", 
+        "title": "Homevolt Local",
         "host": host_info["host"],
-        "resource_url": host_info["resource_url"]
+        "resource_url": host_info["resource_url"],
     }
 
 
@@ -195,7 +196,9 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.username = user_input.get(CONF_USERNAME, "").strip() or None
                 self.password = user_input.get(CONF_PASSWORD, "").strip() or None
                 self.verify_ssl = user_input.get(CONF_VERIFY_SSL, True)
-                self.scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+                self.scan_interval = user_input.get(
+                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                )
                 self.timeout = user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
 
                 # Validate the first host

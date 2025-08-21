@@ -49,7 +49,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  # noqa: C901
     """Set up Homevolt Local from a config entry."""
     # Handle both old and new config entry formats
     if CONF_RESOURCES in entry.data:
@@ -225,7 +225,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
                 auth = None
                 if self.username and self.password:
                     auth = aiohttp.BasicAuth(self.username, self.password)
-                
+
                 async with self.session.get(resource, auth=auth) as resp:
                     if resp.status != 200:
                         raise UpdateFailed(f"Error communicating with API: {resp.status}")
@@ -250,7 +250,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
                 if response.status != 200:
                     self.logger.error("Failed to fetch schedule data. Status: %s", response.status)
                     return []
-                
+
                 response_text = await response.text()
                 schedules = self._parse_schedule_data(response_text)
 
@@ -268,7 +268,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
             r" from: (?P<from_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
             r" to: (?P<to_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
             r"(?: setpoint: (?P<setpoint>-?\d+))?,"
-            r"(?: offline: (?P<offline>true|false))?"
+            r"(?: offline: (?P<offline>true|false))?,"
             r"(?: max_discharge: (?P<max_discharge>.*?))?,"
             r"(?: max_charge: (?P<max_charge>.*?))?$"
             , re.MULTILINE

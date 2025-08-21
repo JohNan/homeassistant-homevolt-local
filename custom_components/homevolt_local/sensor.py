@@ -1,9 +1,11 @@
 """Sensor platform for Homevolt Local integration."""
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Union
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, Callable, Dict, Union
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,7 +13,6 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from dataclasses import dataclass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
@@ -20,42 +21,20 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import HomevoltDataUpdateCoordinator
-from .models import HomevoltData, EmsDevice, SensorData, ScheduleEntry
 from .const import (
     ATTR_AGGREGATED,
-    ATTR_AVAILABLE,
-    ATTR_ECU_ID,
     ATTR_EMS,
-    ATTR_EMS_DATA,
-    ATTR_EMS_INFO,
-    ATTR_ENERGY_CONSUMED,
-    ATTR_ENERGY_EXPORTED,
-    ATTR_ENERGY_IMPORTED,
-    ATTR_ENERGY_PRODUCED,
     ATTR_ERROR_STR,
-    ATTR_EUID,
-    ATTR_FW_VERSION,
-    ATTR_INV_INFO,
-    ATTR_NODE_ID,
     ATTR_PHASE,
-    ATTR_POWER,
     ATTR_SENSORS,
-    ATTR_SERIAL_NUMBER,
-    ATTR_SOC_AVG,
-    ATTR_STATE_STR,
-    ATTR_TIMESTAMP,
-    ATTR_TOTAL_POWER,
-    ATTR_TYPE,
     BMS_DATA_INDEX_DEVICE,
     BMS_DATA_INDEX_TOTAL,
     DOMAIN,
-    SENSOR_INDEX_GRID,
-    SENSOR_INDEX_LOAD,
-    SENSOR_INDEX_SOLAR,
     SENSOR_TYPE_GRID,
     SENSOR_TYPE_LOAD,
     SENSOR_TYPE_SOLAR,
 )
+from .models import HomevoltData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,12 +57,20 @@ def get_current_schedule(data: HomevoltData) -> str:
 class HomevoltSensorEntityDescription(SensorEntityDescription):
     """Describes Homevolt sensor entity."""
 
-    value_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], Any] = None
-    icon_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], str] = None
-    attrs_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], Dict[str, Any]] = None
-    device_specific: bool = False  # Whether this sensor is specific to a device in the ems array
-    sensor_specific: bool = False  # Whether this sensor is specific to a device in the sensors array
-    sensor_type: str = None  # The type of sensor this entity is for (grid, solar, load)
+    value_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], Any] | None = None
+    icon_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], str] | None = None
+    attrs_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], Dict[str, Any]] | None = (
+        None
+    )
+    device_specific: bool = (
+        False  # Whether this sensor is specific to a device in the ems array
+    )
+    sensor_specific: bool = (
+        False  # Whether this sensor is specific to a device in the sensors array
+    )
+    sensor_type: str | None = (
+        None  # The type of sensor this entity is for (grid, solar, load)
+    )
 
 
 SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
@@ -213,7 +200,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         },
         device_specific=True,
     ),
-
     # Sensor-specific sensors for grid, solar, and load
     # Grid sensors
     HomevoltSensorEntityDescription(
@@ -252,7 +238,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_GRID,
     ),
-
     # Solar sensors
     HomevoltSensorEntityDescription(
         key="solar_power",
@@ -290,7 +275,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_SOLAR,
     ),
-
     # Load sensors
     HomevoltSensorEntityDescription(
         key="load_power",
@@ -337,11 +321,11 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
     entity_description: HomevoltSensorEntityDescription
 
     def __init__(
-        self, 
+        self,
         coordinator: HomevoltDataUpdateCoordinator,
         description: HomevoltSensorEntityDescription,
-        ems_index: int = None,
-        sensor_index: int = None,
+        ems_index: int | None = None,
+        sensor_index: int | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -367,7 +351,9 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
                 self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{euid}"
             except (IndexError):
                 # Fallback to a generic unique ID if we can't get the euid
-                self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{sensor_index}"
+                self._attr_unique_id = (
+                    f"{DOMAIN}_{description.key}_sensor_{sensor_index}"
+                )
         else:
             # For aggregated sensors, use the host from the resource URL for a consistent unique ID
             host = coordinator.resource.split("://")[1].split("/")[0]
@@ -457,7 +443,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
             )
 
     @callback
-    def _handle_coordinator_update(self) -> None:
+    def _handle_coordinator_update(self) -> None:  # noqa: C901
         """Handle updated data from the coordinator."""
         if self.coordinator.data is None:
             self._attr_native_value = None
@@ -525,36 +511,27 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
             if self.entity_description.value_fn:
                 if self.ems_index is not None:
                     # For device-specific sensors, pass the device index to the value_fn
-                    self._attr_native_value = self.entity_description.value_fn(data)
-                elif self.sensor_index is not None:
-                    # For sensor-specific sensors, pass the sensor index to the value_fn
-                    self._attr_native_value = self.entity_description.value_fn(data)
+                    self._attr_native_value = self.entity_description.value_fn(data, self.ems_index)
                 else:
-                    # For aggregated sensors, just pass the data
+                    # For aggregated and sensor-specific sensors, just pass the data
                     self._attr_native_value = self.entity_description.value_fn(data)
 
             # Set icon using the icon_fn from the description if available
             if self.entity_description.icon_fn:
                 if self.ems_index is not None:
                     # For device-specific sensors, pass the device index to the icon_fn
-                    self._attr_icon = self.entity_description.icon_fn(data)
-                elif self.sensor_index is not None:
-                    # For sensor-specific sensors, pass the sensor index to the icon_fn
-                    self._attr_icon = self.entity_description.icon_fn(data)
+                    self._attr_icon = self.entity_description.icon_fn(data, self.ems_index)
                 else:
-                    # For aggregated sensors, just pass the data
+                    # For aggregated and sensor-specific sensors, just pass the data
                     self._attr_icon = self.entity_description.icon_fn(data)
 
             # Set attributes using the attrs_fn from the description if available
             if self.entity_description.attrs_fn:
                 if self.ems_index is not None:
                     # For device-specific sensors, pass the device index to the attrs_fn
-                    self._attr_extra_state_attributes = self.entity_description.attrs_fn(data)
-                elif self.sensor_index is not None:
-                    # For sensor-specific sensors, pass the sensor index to the attrs_fn
-                    self._attr_extra_state_attributes = self.entity_description.attrs_fn(data)
+                    self._attr_extra_state_attributes = self.entity_description.attrs_fn(data, self.ems_index)
                 else:
-                    # For aggregated sensors, just pass the data
+                    # For aggregated and sensor-specific sensors, just pass the data
                     self._attr_extra_state_attributes = self.entity_description.attrs_fn(data)
 
         except (KeyError, TypeError, IndexError, ValueError, AttributeError) as err:
@@ -565,7 +542,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
         self.async_write_ha_state()
 
 
-async def async_setup_entry(
+async def async_setup_entry(  # noqa: C901
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Homevolt Local sensor based on a config entry."""
@@ -586,41 +563,8 @@ async def async_setup_entry(
         for idx, _ in enumerate(ems_data):
             for description in SENSOR_DESCRIPTIONS:
                 if description.device_specific:
-                    # Create a modified value_fn that includes the device index
-                    if description.value_fn:
-                        # Create a copy of the description with all necessary attributes
-                        # Include wrapper functions for value_fn, icon_fn, and attrs_fn in the constructor
-                        original_value_fn = description.value_fn
-                        value_fn_wrapper = lambda data, orig_fn=original_value_fn, device_idx=idx: orig_fn(data, device_idx)
+                    sensors.append(HomevoltSensor(coordinator, description, idx))
 
-                        # Prepare icon_fn wrapper if it exists
-                        icon_fn_wrapper = None
-                        if description.icon_fn:
-                            original_icon_fn = description.icon_fn
-                            icon_fn_wrapper = lambda data, orig_fn=original_icon_fn, device_idx=idx: orig_fn(data, device_idx)
-
-                        # Prepare attrs_fn wrapper if it exists
-                        attrs_fn_wrapper = None
-                        if description.attrs_fn:
-                            original_attrs_fn = description.attrs_fn
-                            attrs_fn_wrapper = lambda data, orig_fn=original_attrs_fn, device_idx=idx: orig_fn(data, device_idx)
-
-                        # Create the modified description with all wrappers included in the constructor
-                        modified_description = HomevoltSensorEntityDescription(
-                            key=description.key,
-                            name=description.name,
-                            device_class=description.device_class,
-                            native_unit_of_measurement=description.native_unit_of_measurement,
-                            icon=description.icon,
-                            device_specific=description.device_specific,
-                            value_fn=value_fn_wrapper,
-                            icon_fn=icon_fn_wrapper,
-                            attrs_fn=attrs_fn_wrapper,
-                        )
-
-                        sensors.append(HomevoltSensor(coordinator, modified_description, idx))
-                    else:
-                        sensors.append(HomevoltSensor(coordinator, description, idx))
 
     # Check if we have data and if the sensors array exists
     if coordinator.data and coordinator.data.sensors:

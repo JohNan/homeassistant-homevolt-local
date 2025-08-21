@@ -1,0 +1,55 @@
+# See https://beta.ruff.rs/docs/configuration/
+# for a full list of options.
+
+# Assume Python 3.11
+target-version = "py311"
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "custom_components/homevolt_local/translations",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+[lint]
+# See https://beta.ruff.rs/docs/rules/ for a full list of rules.
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "C", # flake8-comprehensions
+    "B", # flake8-bugbear
+]
+ignore = [
+    "E501", # line too long, handled by black
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"const.py" = ["F401"]
+
+[lint.isort]
+# Since we have a single module, we don't need to worry about sections.
+known-first-party = ["custom_components.homevolt_local"]
