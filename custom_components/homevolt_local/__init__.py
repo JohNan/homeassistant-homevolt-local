@@ -189,18 +189,18 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
     """Class to manage fetching Homevolt data."""
 
     def __init__(
-        self,
-        hass: HomeAssistant,
-        logger: logging.Logger,
-        entry_id: str,
-        resources: List[str],
-        hosts: List[str],
-        main_host: str,
-        username: Optional[str],
-        password: Optional[str],
-        session: aiohttp.ClientSession,
-        update_interval: timedelta,
-        timeout: int,
+            self,
+            hass: HomeAssistant,
+            logger: logging.Logger,
+            entry_id: str,
+            resources: List[str],
+            hosts: List[str],
+            main_host: str,
+            username: Optional[str],
+            password: Optional[str],
+            session: aiohttp.ClientSession,
+            update_interval: timedelta,
+            timeout: int,
     ) -> None:
         """Initialize."""
         self.entry_id = entry_id
@@ -225,7 +225,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
                 auth = None
                 if self.username and self.password:
                     auth = aiohttp.BasicAuth(self.username, self.password)
-                
+
                 async with self.session.get(resource, auth=auth) as resp:
                     if resp.status != 200:
                         raise UpdateFailed(f"Error communicating with API: {resp.status}")
@@ -250,7 +250,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
                 if response.status != 200:
                     self.logger.error("Failed to fetch schedule data. Status: %s", response.status)
                     return []
-                
+
                 response_text = await response.text()
                 schedules = self._parse_schedule_data(response_text)
 
@@ -270,8 +270,8 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
             r"(?: setpoint: (?P<setpoint>-?\d+))?,"
             r"(?: offline: (?P<offline>true|false))?"
             r"(?: max_discharge: (?P<max_discharge>.*?))?,"
-            r"(?: max_charge: (?P<max_charge>.*?))?$"
-            , re.MULTILINE
+            r"(?: max_charge: (?P<max_charge>.*?))?$",
+            re.MULTILINE
         )
 
         for line in response_text.splitlines():
