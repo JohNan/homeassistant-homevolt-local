@@ -39,7 +39,7 @@ from .const import (
     CONF_RESOURCES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
-    DOMAIN, EMS_RESOURCE_PATH,
+    DOMAIN, EMS_RESOURCE_PATH, CONSOLE_RESOURCE_PATH, 
 )
 from .models import HomevoltData, ScheduleEntry
 
@@ -236,7 +236,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
     async def _fetch_schedule_data(self) -> List[ScheduleEntry]:
         """Fetch schedule data from the main host."""
-        url = f"{self.main_host}{EMS_RESOURCE_PATH}"
+        url = f"{self.main_host}{CONSOLE_RESOURCE_PATH}"
         command = "sched_list"
         schedules = []
 
