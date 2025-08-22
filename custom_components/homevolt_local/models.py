@@ -4,6 +4,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
+from custom_components.homevolt_local import ATTR_EUID
+from custom_components.homevolt_local.const import ATTR_TYPE, ATTR_NODE_ID, ATTR_TIMESTAMP, ATTR_AVAILABLE, ATTR_ECU_ID, \
+    ATTR_EMS_INFO, ATTR_BMS_INFO, ATTR_INV_INFO, ATTR_TOTAL_POWER, ATTR_ENERGY_IMPORTED, ATTR_ENERGY_EXPORTED, \
+    ATTR_PHASE, ATTR_EMS, ATTR_AGGREGATED, ATTR_SENSORS
+
 
 @dataclass
 class ScheduleEntry:
@@ -241,9 +246,9 @@ class HomevoltData:
         return cls(
             type=data.get("$type", ""),
             ts=data.get("ts", 0),
-            ems=[EmsDevice.from_dict(ems) for ems in data.get("ems", [])],
-            aggregated=EmsDevice.from_dict(data.get("aggregated", {})),
-            sensors=[SensorData.from_dict(sensor) for sensor in data.get("sensors", [])],
+            ems=[EmsDevice.from_dict(ems) for ems in data.get(ATTR_EMS, [])],
+            aggregated=EmsDevice.from_dict(data.get(ATTR_AGGREGATED, {})),
+            sensors=[SensorData.from_dict(sensor) for sensor in data.get(ATTR_SENSORS, [])],
             schedules=data.get("schedules", []),  # Will be populated by the coordinator
         )
 
@@ -427,20 +432,20 @@ def _add_from_dict_methods():
     @staticmethod
     def sensor_data_from_dict(data: Dict[str, Any]) -> SensorData:
         return SensorData(
-            type=data.get("type", ""),
-            node_id=data.get("node_id", 0),
-            euid=data.get("euid", ""),
+            type=data.get(ATTR_TYPE, ""),
+            node_id=data.get(ATTR_NODE_ID, 0),
+            euid=data.get(ATTR_EUID, ""),
             interface=data.get("interface", 0),
-            available=data.get("available", True),
+            available=data.get(ATTR_AVAILABLE, True),
             rssi=data.get("rssi", 0),
             average_rssi=data.get("average_rssi", 0.0),
             pdr=data.get("pdr", 0.0),
-            phase=[PhaseData.from_dict(phase) for phase in data.get("phase", [])],
+            phase=[PhaseData.from_dict(phase) for phase in data.get(ATTR_PHASE, [])],
             frequency=data.get("frequency", 0),
-            total_power=data.get("total_power", 0),
-            energy_imported=data.get("energy_imported", 0.0),
-            energy_exported=data.get("energy_exported", 0.0),
-            timestamp=data.get("timestamp", 0),
+            total_power=data.get(ATTR_TOTAL_POWER, 0),
+            energy_imported=data.get(ATTR_ENERGY_IMPORTED, 0.0),
+            energy_exported=data.get(ATTR_ENERGY_EXPORTED, 0.0),
+            timestamp=data.get(ATTR_TIMESTAMP, 0),
         )
     
     SensorData.from_dict = sensor_data_from_dict
@@ -487,16 +492,16 @@ def _add_from_dict_methods():
             )
         
         return EmsDevice(
-            ecu_id=data.get("ecu_id", 0),
+            ecu_id=data.get(ATTR_ECU_ID, 0),
             ecu_host=data.get("ecu_host", ""),
             ecu_version=data.get("ecu_version", ""),
             error=data.get("error", 0),
             error_str=data.get("error_str", ""),
             op_state=data.get("op_state", 0),
             op_state_str=data.get("op_state_str", ""),
-            ems_info=EmsInfo.from_dict(data.get("ems_info", {})) if "ems_info" in data else EmsInfo(protocol_version=0, fw_version="", rated_capacity=0, rated_power=0),
-            bms_info=[BmsInfo.from_dict(bms) for bms in data.get("bms_info", [])],
-            inv_info=InvInfo.from_dict(data.get("inv_info", {})) if "inv_info" in data else InvInfo(fw_version="", serial_number=""),
+            ems_info=EmsInfo.from_dict(data.get(ATTR_EMS_INFO, {})) if ATTR_EMS_INFO in data else EmsInfo(protocol_version=0, fw_version="", rated_capacity=0, rated_power=0),
+            bms_info=[BmsInfo.from_dict(bms) for bms in data.get(ATTR_BMS_INFO, [])],
+            inv_info=InvInfo.from_dict(data.get(ATTR_INV_INFO, {})) if ATTR_INV_INFO in data else InvInfo(fw_version="", serial_number=""),
             ems_config=EmsConfig.from_dict(data.get("ems_config", {})) if "ems_config" in data else EmsConfig(grid_code_preset=0, grid_code_preset_str="", control_timeout=False),
             inv_config=InvConfig.from_dict(data.get("inv_config", {})) if "inv_config" in data else InvConfig(ffr_fstart_freq=0),
             ems_control=EmsControl.from_dict(data.get("ems_control", {})) if "ems_control" in data else EmsControl(

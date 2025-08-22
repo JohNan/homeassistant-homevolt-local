@@ -2,27 +2,10 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
-from urllib.parse import urlparse
 
 import aiohttp
 import voluptuous as vol
-
-class CannotConnect(Exception):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(Exception):
-    """Error to indicate there is invalid auth."""
-
-
-class InvalidResource(Exception):
-    """Error to indicate the resource URL is invalid."""
-
-
-class DuplicateHost(Exception):
-    """Error to indicate the host is already in the list."""
 
 from homeassistant import config_entries
 from homeassistant.const import (
@@ -41,9 +24,8 @@ from .const import (
     CONF_HOST,
     CONF_HOSTS,
     CONF_MAIN_HOST,
-    CONF_RESOURCE,
     CONF_RESOURCES,
-    DEFAULT_RESOURCE_PATH,
+    EMS_RESOURCE_PATH,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
@@ -70,6 +52,22 @@ STEP_ADD_HOST_DATA_SCHEMA = vol.Schema(
 )
 
 
+class CannotConnect(Exception):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidAuth(Exception):
+    """Error to indicate there is invalid auth."""
+
+
+class InvalidResource(Exception):
+    """Error to indicate the resource URL is invalid."""
+
+
+class DuplicateHost(Exception):
+    """Error to indicate the host is already in the list."""
+
+
 def is_valid_host(host: str) -> bool:
     """Check if the host is valid."""
     # Simple validation: host should not be empty and should not contain spaces
@@ -81,20 +79,20 @@ def construct_resource_url(host: str) -> str:
     # Check if the host already includes a protocol (http:// or https://)
     if not host.startswith(("http://", "https://")):
         # Default to https if no protocol is specified
-        resource_url = f"https://{host}{DEFAULT_RESOURCE_PATH}"
+        resource_url = f"https://{host}{EMS_RESOURCE_PATH}"
     else:
         # If protocol is already included, just append the path
-        resource_url = f"{host}{DEFAULT_RESOURCE_PATH}"
+        resource_url = f"{host}{EMS_RESOURCE_PATH}"
     return resource_url
 
 
 async def validate_host(
-    hass: HomeAssistant, 
-    host: str, 
-    username: str = None, 
-    password: str = None, 
-    verify_ssl: bool = True,
-    existing_hosts: list[str] = None
+        hass: HomeAssistant,
+        host: str,
+        username: str = None,
+        password: str = None,
+        verify_ssl: bool = True,
+        existing_hosts: list[str] = None
 ) -> dict[str, Any]:
     """Validate a host and return its resource URL."""
     # Validate the host
@@ -152,17 +150,17 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     # Validate the host
     host_info = await validate_host(
-        hass, 
-        host, 
-        username, 
-        password, 
+        hass,
+        host,
+        username,
+        password,
         verify_ssl,
         existing_hosts
     )
 
     # Return info that you want to store in the config entry.
     return {
-        "title": "Homevolt Local", 
+        "title": "Homevolt Local",
         "host": host_info["host"],
         "resource_url": host_info["resource_url"]
     }
@@ -185,7 +183,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.timeout = DEFAULT_TIMEOUT
 
     async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
@@ -233,7 +231,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_add_host(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the add_host step."""
         errors: dict[str, str] = {}
@@ -282,7 +280,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_select_main(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the select_main step."""
         errors: dict[str, str] = {}
@@ -310,7 +308,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_confirm(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the confirm step."""
         if user_input is not None:

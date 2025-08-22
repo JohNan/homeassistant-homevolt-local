@@ -11,7 +11,8 @@ CONF_RESOURCES = "resources"
 CONF_ADD_ANOTHER = "add_another"
 DEFAULT_SCAN_INTERVAL = 30
 DEFAULT_TIMEOUT = 30
-DEFAULT_RESOURCE_PATH = "/ems.json"
+EMS_RESOURCE_PATH = "/ems.json"
+CONSOLE_RESOURCE_PATH = "/console.json"
 
 # Attribute keys from the API response
 ATTR_EMS = "ems"

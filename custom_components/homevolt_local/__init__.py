@@ -22,7 +22,6 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
     DataUpdateCoordinator,
     UpdateFailed,
 )
@@ -40,7 +39,7 @@ from .const import (
     CONF_RESOURCES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
-    DOMAIN,
+    DOMAIN, EMS_RESOURCE_PATH,
 )
 from .models import HomevoltData, ScheduleEntry
 
@@ -149,7 +148,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         to_time = call.data["to_time"].strftime("%Y-%m-%dT%H:%M:%S")
 
         command = f"sched_add {mode} --setpoint {setpoint} --from={from_time} --to={to_time}"
-        url = f"http://{host}/console.json"
+        url = f"{host}{EMS_RESOURCE_PATH}"
 
         try:
             session = async_get_clientsession(hass, verify_ssl=verify_ssl)
@@ -237,7 +236,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
     async def _fetch_schedule_data(self) -> List[ScheduleEntry]:
         """Fetch schedule data from the main host."""
-        url = f"http://{self.main_host}/console.json"
+        url = f"{self.main_host}{EMS_RESOURCE_PATH}"
         command = "sched_list"
         schedules = []
 
