@@ -22,4 +22,4 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run tests
-        run: python -m custom_components.homevolt_local.tests.test_init
+        run: pytest
