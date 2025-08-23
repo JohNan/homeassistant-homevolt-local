@@ -261,33 +261,34 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
     def _parse_schedule_data(self, response_text: str) -> List[ScheduleEntry]:
         """Parse the schedule data from the text response."""
         schedules = []
-        # Regex to capture each schedule line
-        pattern = re.compile(
-            r"id: (?P<id>\d+), type: (?P<type>.*?),"
-            r" from: (?P<from_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
-            r" to: (?P<to_time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}),"
-            r"(?: setpoint: (?P<setpoint>-?\d+))?,"
-            r"(?: offline: (?P<offline>true|false))?"
-            r"(?: max_discharge: (?P<max_discharge>.*?))?,"
-            r"(?: max_charge: (?P<max_charge>.*?))?$",
-            re.MULTILINE
-        )
+        lines = response_text.splitlines()
 
-        for line in response_text.splitlines():
-            match = pattern.match(line.strip())
-            if match:
-                data = match.groupdict()
-                schedule = ScheduleEntry(
-                    id=int(data["id"]),
-                    type=data["type"].strip(),
-                    from_time=data["from_time"],
-                    to_time=data["to_time"],
-                    setpoint=int(data["setpoint"]) if data["setpoint"] else None,
-                    offline=data["offline"] == "true" if data["offline"] else None,
-                    max_discharge=data["max_discharge"].strip() if data["max_discharge"] else None,
-                    max_charge=data["max_charge"].strip() if data["max_charge"] else None,
-                )
-                schedules.append(schedule)
+        for line in lines:
+            line = line.strip()
+            if not line.startswith("id:"):
+                continue
+
+            parts = [p.strip() for p in line.split(',')]
+            data = {}
+            for part in parts:
+                key_value = [kv.strip() for kv in part.split(':', 1)]
+                if len(key_value) == 2:
+                    data[key_value[0]] = key_value[1]
+
+            if "id" not in data:
+                continue
+
+            schedule = ScheduleEntry(
+                id=int(data["id"]),
+                type=data.get("type"),
+                from_time=data.get("from"),
+                to_time=data.get("to"),
+                setpoint=int(data["setpoint"]) if data.get("setpoint") is not None else None,
+                offline=data.get("offline") == "true" if data.get("offline") is not None else None,
+                max_discharge=data.get("max_discharge"),
+                max_charge=data.get("max_charge"),
+            )
+            schedules.append(schedule)
         return schedules
 
     async def _async_update_data(self) -> HomevoltData:
