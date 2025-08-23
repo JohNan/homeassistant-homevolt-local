@@ -1,11 +1,11 @@
 {
   "domain": "homevolt_local",
   "name": "Homevolt Local",
-  "documentation": "https://github.com/JohNan/homeassistant-homevolt-local",
-  "dependencies": [],
   "codeowners": ["@JohNan"],
-  "requirements": ["aiohttp>=3.8.0,<4.0.0", "voluptuous>=0.13.0"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/JohNan/homeassistant-homevolt-local",
   "iot_class": "local_polling",
-  "version": "0.1.0",
-  "config_flow": true
+  "requirements": ["aiohttp>=3.8.0,<4.0.0", "voluptuous>=0.13.0"],
+  "version": "0.1.0"
 }

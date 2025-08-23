@@ -13,17 +13,17 @@ add_schedule:
         select:
           options:
             - label: "Idle"
-              value: 0
+              value: "0"
             - label: "Charging"
-              value: 1
+              value: "1"
             - label: "Discharging"
-              value: 2
+              value: "2"
             - label: "Charging with grid setpoint"
-              value: 3
+              value: "3"
             - label: "Discharging with grid setpoint"
-              value: 4
+              value: "4"
             - label: "Grid discharging/charging"
-              value: 5
+              value: "5"
     setpoint:
       name: Setpoint
       description: The power setpoint in watts.
