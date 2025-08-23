@@ -22,4 +22,4 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run tests
-        run: pytest
+        run: PYTHONPATH=. pytest
