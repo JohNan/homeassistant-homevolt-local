@@ -29,7 +29,9 @@ class TestModels(unittest.TestCase):
                     "from": "2023-01-01T00:00:00",
                     "to": "2023-01-01T01:00:00",
                 }
-            ]
+            ],
+            "schedule_count": 1,
+            "schedule_current_id": "test_id"
         }
         homevolt_data = HomevoltData.from_dict(data)
         self.assertEqual(homevolt_data.type, "homevolt.api.public.V1.SystemStatus, homevolt.api.public")
@@ -41,6 +43,8 @@ class TestModels(unittest.TestCase):
         self.assertEqual(homevolt_data.sensors[0].type, "grid")
         self.assertEqual(len(homevolt_data.schedules), 1)
         self.assertEqual(homevolt_data.schedules[0]['type'], "charge")
+        self.assertEqual(homevolt_data.schedule_count, 1)
+        self.assertEqual(homevolt_data.schedule_current_id, "test_id")
 
     def test_ems_device_from_dict_empty(self):
         """Test creating an EmsDevice object from an empty dictionary."""

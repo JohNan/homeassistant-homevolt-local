@@ -87,7 +87,9 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         icon="mdi:calendar-clock",
         value_fn=get_current_schedule,
         attrs_fn=lambda data: {
-            "schedules": [schedule.__dict__ for schedule in data.schedules]
+            "schedules": [schedule.__dict__ for schedule in data.schedules],
+            "schedule_count": data.schedule_count,
+            "schedule_current_id": data.schedule_current_id,
         },
     ),
     HomevoltSensorEntityDescription(

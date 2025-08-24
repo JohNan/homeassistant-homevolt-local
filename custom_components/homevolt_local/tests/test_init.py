@@ -52,9 +52,12 @@ id: 25, type: Grid discharge setpoint, from: 2025-08-24T21:00:00, to: 2025-08-24
 id: 26, type: Idle schedule, from: 2025-08-24T22:00:00, to: 2025-08-25T00:00:00, offline: false
 Command 'sched_list' executed successfully
 """
-        schedules = coordinator._parse_schedule_data(test_string)
+        schedule_info = coordinator._parse_schedule_data(test_string)
+        schedules = schedule_info["entries"]
 
         self.assertEqual(len(schedules), 27)
+        self.assertEqual(schedule_info["count"], 27)
+        self.assertEqual(schedule_info["current_id"], "linear-optimization2-2025-08-23 21:09")
 
         self.assertEqual(schedules[0], ScheduleEntry(
             id=0, type='Idle schedule', from_time='2025-08-23T23:00:00',

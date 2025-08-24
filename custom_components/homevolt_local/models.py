@@ -239,6 +239,8 @@ class HomevoltData:
     aggregated: EmsDevice
     sensors: List[SensorData]
     schedules: List[ScheduleEntry] = field(default_factory=list)
+    schedule_count: Optional[int] = None
+    schedule_current_id: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> HomevoltData:
@@ -250,6 +252,8 @@ class HomevoltData:
             aggregated=EmsDevice.from_dict(data.get(ATTR_AGGREGATED, {})),
             sensors=[SensorData.from_dict(sensor) for sensor in data.get(ATTR_SENSORS, [])],
             schedules=data.get("schedules", []),  # Will be populated by the coordinator
+            schedule_count=data.get("schedule_count"),
+            schedule_current_id=data.get("schedule_current_id"),
         )
 
 
