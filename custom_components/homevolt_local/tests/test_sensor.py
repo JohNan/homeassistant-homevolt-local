@@ -8,7 +8,7 @@ from custom_components.homevolt_local.sensor import get_current_schedule, Homevo
 class TestSensor(unittest.TestCase):
     def test_get_current_schedule(self):
         """Test the get_current_schedule function."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         schedules = [
             ScheduleEntry(id=1, type="charge", from_time=(now - timedelta(hours=1)).isoformat(), to_time=(now + timedelta(hours=1)).isoformat()),
             ScheduleEntry(id=2, type="discharge", from_time=(now + timedelta(hours=2)).isoformat(), to_time=(now + timedelta(hours=3)).isoformat()),

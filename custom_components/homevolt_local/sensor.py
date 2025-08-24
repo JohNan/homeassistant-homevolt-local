@@ -40,11 +40,11 @@ _LOGGER = logging.getLogger(__name__)
 
 def get_current_schedule(data: HomevoltData) -> str:
     """Get the current active schedule."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     for schedule in data.schedules:
         try:
-            from_time = datetime.fromisoformat(schedule.from_time).replace(tzinfo=timezone.utc)
-            to_time = datetime.fromisoformat(schedule.to_time).replace(tzinfo=timezone.utc)
+            from_time = datetime.fromisoformat(schedule.from_time)
+            to_time = datetime.fromisoformat(schedule.to_time)
             if from_time <= now < to_time:
                 return schedule.type
         except (ValueError, TypeError):
