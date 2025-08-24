@@ -345,8 +345,8 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
         merged_data = dict(main_data)
 
         # Collect all EMS devices and sensors from all systems
-        all_ems = []
-        all_sensors = []
+        all_ems = merged_data.get(ATTR_EMS, [])[:]
+        all_sensors = merged_data.get(ATTR_SENSORS, [])[:]
 
         for _, data in results:
             # Add EMS devices
