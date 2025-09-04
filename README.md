@@ -69,9 +69,9 @@ These sensors show combined data from all EMS units:
 1. **Homevolt Status**: Shows the current state of the EMS with a dynamic icon that changes based on the battery level
 2. **Homevolt Error**: Shows error information when available
 3. **Homevolt Total SoC**: Shows the total state of charge as a percentage
-4. **Homevolt effekt**: Shows the current power in watts
-5. **Homevolt energi producerat**: Shows the energy produced in kilowatts
-6. **Homevolt energi konsumerat**: Shows the energy consumed in kilowatts
+4. **Homevolt Power**: Shows the current power in watts
+5. **Homevolt Energy Produced**: Shows the energy produced in kilowatt-hours
+6. **Homevolt Energy Consumed**: Shows the energy consumed in kilowatt-hours
 
 ### EMS Device-Specific Sensors
 
@@ -111,6 +111,122 @@ The Load sensor device provides information about your household consumption:
 1. **Power**: Shows the current power consumption in watts
 2. **Energy Imported**: Shows the total energy imported by the loads in kilowatt-hours
 3. **Energy Exported**: Shows the total energy exported by the loads in kilowatt-hours
+
+## Example Dashboard
+
+Here is an example dashboard configuration that you can use to display your Homevolt sensors. You can add this to your Home Assistant Dashboards by choosing "Raw configuration editor" and pasting the code below.
+
+**Note:** You will likely need to replace some of the placeholder entity IDs (e.g., `sensor.REPLACE_WITH_YOUR_GRID_POWER_SENSOR`) with the actual entity IDs from your Home Assistant instance. You can find the entity IDs in Home Assistant under **Settings -> Devices & Services -> Entities**.
+
+The aggregated sensors (e.g., `sensor.homevolt_total_soc`) should have stable entity IDs. However, sensors for Grid, Solar, Load, and individual EMS units may have entity IDs that vary depending on your setup (e.g., `sensor.power_2`, `sensor.power_3`). Please verify all entity IDs before using this dashboard.
+
+```yaml
+#
+# Note: You will need to replace some of the placeholder entity IDs below with the
+# actual entity IDs from your Home Assistant instance. You can find the entity IDs
+# in Home Assistant under Settings -> Devices & Services -> Entities.
+#
+# The aggregated sensors (e.g., sensor.homevolt_total_soc) should have stable names.
+# However, sensors for Grid, Solar, Load, and individual EMS units may have
+# entity IDs that vary (e.g., sensor.power_2, sensor.power_3). Please verify all
+# entity IDs before using this dashboard.
+#
+title: Homevolt Energy Dashboard
+views:
+  - path: default_view
+    title: Home
+    icon: mdi:home
+    cards:
+      - type: markdown
+        content: >
+          # Homevolt - Overview
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: gauge
+            entity: sensor.homevolt_total_soc
+            name: Total Battery SoC
+            min: 0
+            max: 100
+            segments:
+              - from: 0
+                color: '#db4437'
+              - from: 20
+                color: '#ffa600'
+              - from: 60
+                color: '#43a047'
+          - type: entity
+            entity: sensor.homevolt_status
+            name: System Status
+          - type: entity
+            entity: sensor.homevolt_power
+            name: Battery Power Flow
+          - type: entity
+            entity: sensor.homevolt_current_schedule
+            name: Current Schedule
+
+      - type: markdown
+        content: >
+          ## Energy Flow (Current Power)
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: sensor
+            entity: sensor.REPLACE_WITH_YOUR_GRID_POWER_SENSOR
+            name: Grid
+            graph: line
+          - type: sensor
+            entity: sensor.REPLACE_WITH_YOUR_SOLAR_POWER_SENSOR
+            name: Solar
+            graph: line
+          - type: sensor
+            entity: sensor.REPLACE_WITH_YOUR_LOAD_POWER_SENSOR
+            name: House
+            graph: line
+
+      - type: markdown
+        content: >
+          ## Energy Totals (Lifetime)
+      - type: entities
+        show_header_toggle: false
+        entities:
+          - entity: sensor.homevolt_energy_produced
+            name: Battery - Energy Produced
+          - entity: sensor.homevolt_energy_consumed
+            name: Battery - Energy Consumed
+          - entity: sensor.REPLACE_WITH_YOUR_GRID_ENERGY_IMPORTED_SENSOR
+            name: Grid - Energy Imported
+          - entity: sensor.REPLACE_WITH_YOUR_GRID_ENERGY_EXPORTED_SENSOR
+            name: Grid - Energy Exported
+          - entity: sensor.REPLACE_WITH_YOUR_SOLAR_ENERGY_EXPORTED_SENSOR
+            name: Solar - Energy Produced
+          - entity: sensor.REPLACE_WITH_YOUR_LOAD_ENERGY_IMPORTED_SENSOR
+            name: House - Energy Consumed
+
+      - type: markdown
+        content: >
+          ## EMS Devices
+
+          *Note: If you have multiple EMS devices, you can duplicate the card below for each one.*
+      - type: entities
+        title: "EMS Device 1"
+        show_header_toggle: false
+        entities:
+          - entity: sensor.REPLACE_WITH_YOUR_EMS_1_STATUS_SENSOR
+            name: Status
+          - entity: sensor.REPLACE_WITH_YOUR_EMS_1_BATTERY_SOC_SENSOR
+            name: Battery SoC
+          - entity: sensor.REPLACE_WITH_YOUR_EMS_1_POWER_SENSOR
+            name: Power
+          - entity: sensor.REPLACE_WITH_YOUR_EMS_1_ENERGY_PRODUCED_SENSOR
+            name: Energy Produced
+          - entity: sensor.REPLACE_WITH_YOUR_EMS_1_ENERGY_CONSUMED_SENSOR
+            name: Energy Consumed
+          - entity: sensor.REPLACE_WITH_YOUR_EMS_1_ERROR_SENSOR
+            name: Error
+```
 
 ## Troubleshooting
 
