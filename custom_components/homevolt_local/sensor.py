@@ -142,58 +142,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         icon="mdi:battery-negative",
         value_fn=lambda data: float(data.aggregated.ems_data.energy_consumed) / 1000,
     ),
-    # Device-specific sensors for each EMS device
-    HomevoltSensorEntityDescription(
-        key="device_status",
-        name="Status",
-        value_fn=lambda data, idx=0: data.ems[idx].ems_data.state_str if idx < len(data.ems) else None,
-        icon_fn=lambda data, idx=0: (
-            "mdi:battery-outline"
-            if idx < len(data.ems) and float(data.ems[idx].ems_data.soc_avg) < 5
-            else f"mdi:battery-{int(round(float(data.ems[idx].ems_data.soc_avg) / 10.0) * 10) if idx < len(data.ems) else 0}"
-        ),
-        device_specific=True,
-    ),
-    HomevoltSensorEntityDescription(
-        key="device_power",
-        name="Power",
-        device_class=SensorDeviceClass.POWER,
-        native_unit_of_measurement="W",
-        icon="mdi:battery-sync-outline",
-        value_fn=lambda data, idx=0: data.ems[idx].ems_data.power if idx < len(data.ems) else None,
-        device_specific=True,
-    ),
-    HomevoltSensorEntityDescription(
-        key="device_energy_produced",
-        name="Energy Produced",
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
-        native_unit_of_measurement="kWh",
-        icon="mdi:battery-positive",
-        value_fn=lambda data, idx=0: float(data.ems[idx].ems_data.energy_produced) / 1000 if idx < len(data.ems) else None,
-        device_specific=True,
-    ),
-    HomevoltSensorEntityDescription(
-        key="device_energy_consumed",
-        name="Energy Consumed",
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
-        native_unit_of_measurement="kWh",
-        icon="mdi:battery-negative",
-        value_fn=lambda data, idx=0: float(data.ems[idx].ems_data.energy_consumed) / 1000 if idx < len(data.ems) else None,
-        device_specific=True,
-    ),
-    HomevoltSensorEntityDescription(
-        key="device_error",
-        name="Error",
-        icon="mdi:battery-unknown",
-        value_fn=lambda data, idx=0: data.ems[idx].error_str[:255] if idx < len(data.ems) and data.ems[idx].error_str else None,
-        attrs_fn=lambda data, idx=0: {
-            ATTR_ERROR_STR: data.ems[idx].error_str if idx < len(data.ems) else "",
-        },
-        device_specific=True,
-    ),
-
     # Sensor-specific sensors for grid, solar, and load
     # Grid sensors
     HomevoltSensorEntityDescription(
@@ -560,47 +508,93 @@ async def async_setup_entry(
 
     # Check if we have data and if the ems array exists
     if coordinator.data and coordinator.data.ems:
-        ems_data = coordinator.data.ems
-
         # Create device-specific sensors for each device in the ems array
-        for idx, _ in enumerate(ems_data):
-            for description in SENSOR_DESCRIPTIONS:
-                if description.device_specific:
-                    # Create a modified value_fn that includes the device index
-                    if description.value_fn:
-                        # Create a copy of the description with all necessary attributes
-                        # Include wrapper functions for value_fn, icon_fn, and attrs_fn in the constructor
-                        original_value_fn = description.value_fn
-                        value_fn_wrapper = lambda data, orig_fn=original_value_fn, device_idx=idx: orig_fn(data, device_idx)
-
-                        # Prepare icon_fn wrapper if it exists
-                        icon_fn_wrapper = None
-                        if description.icon_fn:
-                            original_icon_fn = description.icon_fn
-                            icon_fn_wrapper = lambda data, orig_fn=original_icon_fn, device_idx=idx: orig_fn(data, device_idx)
-
-                        # Prepare attrs_fn wrapper if it exists
-                        attrs_fn_wrapper = None
-                        if description.attrs_fn:
-                            original_attrs_fn = description.attrs_fn
-                            attrs_fn_wrapper = lambda data, orig_fn=original_attrs_fn, device_idx=idx: orig_fn(data, device_idx)
-
-                        # Create the modified description with all wrappers included in the constructor
-                        modified_description = HomevoltSensorEntityDescription(
-                            key=description.key,
-                            name=description.name,
-                            device_class=description.device_class,
-                            native_unit_of_measurement=description.native_unit_of_measurement,
-                            icon=description.icon,
-                            device_specific=description.device_specific,
-                            value_fn=value_fn_wrapper,
-                            icon_fn=icon_fn_wrapper,
-                            attrs_fn=attrs_fn_wrapper,
-                        )
-
-                        sensors.append(HomevoltSensor(coordinator, modified_description, idx))
-                    else:
-                        sensors.append(HomevoltSensor(coordinator, description, idx))
+        for idx, _ in enumerate(coordinator.data.ems):
+            # Add a status sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"device_status_{idx}",
+                        name="Status",
+                        value_fn=lambda data, i=idx: data.ems[i].ems_data.state_str,
+                        icon_fn=lambda data, i=idx: (
+                            "mdi:battery-outline"
+                            if float(data.ems[i].ems_data.soc_avg) < 5
+                            else f"mdi:battery-{int(round(float(data.ems[i].ems_data.soc_avg) / 10.0) * 10)}"
+                        ),
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
+            # Add a power sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"device_power_{idx}",
+                        name="Power",
+                        device_class=SensorDeviceClass.POWER,
+                        native_unit_of_measurement="W",
+                        icon="mdi:battery-sync-outline",
+                        value_fn=lambda data, i=idx: data.ems[i].ems_data.power,
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
+            # Add an energy produced sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"device_energy_produced_{idx}",
+                        name="Energy Discharged",
+                        device_class=SensorDeviceClass.ENERGY,
+                        state_class=SensorStateClass.TOTAL,
+                        native_unit_of_measurement="kWh",
+                        icon="mdi:battery-positive",
+                        value_fn=lambda data, i=idx: float(data.ems[i].ems_data.energy_produced) / 1000,
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
+            # Add an energy consumed sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"device_energy_consumed_{idx}",
+                        name="Energy Charged",
+                        device_class=SensorDeviceClass.ENERGY,
+                        state_class=SensorStateClass.TOTAL,
+                        native_unit_of_measurement="kWh",
+                        icon="mdi:battery-negative",
+                        value_fn=lambda data, i=idx: float(data.ems[i].ems_data.energy_consumed) / 1000,
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
+            # Add an error sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"device_error_{idx}",
+                        name="Error",
+                        icon="mdi:battery-unknown",
+                        value_fn=lambda data, i=idx: data.ems[i].error_str[:255] if data.ems[i].error_str else None,
+                        attrs_fn=lambda data, i=idx: {
+                            ATTR_ERROR_STR: data.ems[i].error_str,
+                        },
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
 
     # Check if we have data and if the sensors array exists
     if coordinator.data and coordinator.data.sensors:
