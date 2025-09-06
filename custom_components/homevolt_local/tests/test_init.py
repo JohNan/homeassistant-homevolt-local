@@ -1,5 +1,18 @@
 import unittest
-from custom_components.homevolt_local import HomevoltDataUpdateCoordinator
+from unittest.mock import MagicMock, patch, AsyncMock
+import pytest
+from datetime import datetime
+
+from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.device_registry import DeviceEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.homevolt_local import (
+    HomevoltDataUpdateCoordinator,
+    async_setup_entry,
+)
+from custom_components.homevolt_local.const import DOMAIN, CONF_MAIN_HOST
 from custom_components.homevolt_local.models import ScheduleEntry
 
 
@@ -59,26 +72,182 @@ Command 'sched_list' executed successfully
         self.assertEqual(schedule_info["count"], 27)
         self.assertEqual(schedule_info["current_id"], "linear-optimization2-2025-08-23 21:09")
 
-        self.assertEqual(schedules[0], ScheduleEntry(
-            id=0, type='Idle schedule', from_time='2025-08-23T23:00:00',
-            to_time='2025-08-23T23:30:00', setpoint=None, offline=False,
-            max_discharge=None, max_charge=None
-        ))
-        self.assertEqual(schedules[1], ScheduleEntry(
-            id=1, type='Grid discharge setpoint', from_time='2025-08-23T23:30:00',
-            to_time='2025-08-24T00:00:00', setpoint=0, offline=None,
-            max_discharge='<max allowed>', max_charge=None
-        ))
-        self.assertEqual(schedules[23], ScheduleEntry(
-            id=23, type='Inverter discharge setpoint', from_time='2025-08-24T19:00:00',
-            to_time='2025-08-24T20:45:00', setpoint=12056, offline=None,
-            max_discharge=None, max_charge=None
-        ))
-        self.assertEqual(schedules[26], ScheduleEntry(
-            id=26, type='Idle schedule', from_time='2025-08-24T22:00:00',
-            to_time='2025-08-25T00:00:00', setpoint=None, offline=False,
-            max_discharge=None, max_charge=None
-        ))
+        self.assertEqual(
+            schedules[0],
+            ScheduleEntry(
+                id=0,
+                type="Idle schedule",
+                from_time="2025-08-23T23:00:00",
+                to_time="2025-08-23T23:30:00",
+                setpoint=None,
+                offline=False,
+                max_discharge=None,
+                max_charge=None,
+            ),
+        )
+        self.assertEqual(
+            schedules[1],
+            ScheduleEntry(
+                id=1,
+                type="Grid discharge setpoint",
+                from_time="2025-08-23T23:30:00",
+                to_time="2025-08-24T00:00:00",
+                setpoint=0,
+                offline=None,
+                max_discharge="<max allowed>",
+                max_charge=None,
+            ),
+        )
+        self.assertEqual(
+            schedules[23],
+            ScheduleEntry(
+                id=23,
+                type="Inverter discharge setpoint",
+                from_time="2025-08-24T19:00:00",
+                to_time="2025-08-24T20:45:00",
+                setpoint=12056,
+                offline=None,
+                max_discharge=None,
+                max_charge=None,
+            ),
+        )
+        self.assertEqual(
+            schedules[26],
+            ScheduleEntry(
+                id=26,
+                type="Idle schedule",
+                from_time="2025-08-24T22:00:00",
+                to_time="2025-08-25T00:00:00",
+                setpoint=None,
+                offline=False,
+                max_discharge=None,
+                max_charge=None,
+            ),
+        )
 
-if __name__ == '__main__':
+
+@pytest.fixture
+def mock_hass():
+    """Mock Home Assistant instance."""
+    hass = MagicMock(spec=HomeAssistant)
+    hass.data = {DOMAIN: {}}
+    hass.services = MagicMock()
+    hass.config_entries = MagicMock()
+    hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
+    return hass
+
+
+@pytest.mark.asyncio
+async def test_add_schedule_service_single_device(mock_hass):
+    """Test the add_schedule service with a single device."""
+    with patch(
+        "custom_components.homevolt_local.async_get_device_registry"
+    ) as mock_get_dr, patch(
+        "custom_components.homevolt_local.async_get_clientsession"
+    ) as mock_session:
+        # Arrange
+        mock_dr = MagicMock()
+        mock_get_dr.return_value = mock_dr
+
+        config_entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={CONF_MAIN_HOST: "http://localhost", "resource": "http://localhost/api"},
+            entry_id="test_entry",
+        )
+        mock_hass.config_entries.async_get_entry.return_value = config_entry
+        device_entry = MagicMock()
+        device_entry.config_entries = {config_entry.entry_id}
+        mock_dr.async_get.return_value = device_entry
+
+        mock_post_response = MagicMock()
+        mock_post_response.status = 200
+        mock_post_response.text = AsyncMock(return_value="OK")
+
+        mock_get_response = MagicMock()
+        mock_get_response.status = 200
+        mock_get_response.json = AsyncMock(return_value={})
+
+        mock_session.return_value.post.return_value = MagicMock(
+            __aenter__=AsyncMock(return_value=mock_post_response)
+        )
+        mock_session.return_value.get.return_value = MagicMock(
+            __aenter__=AsyncMock(return_value=mock_get_response)
+        )
+
+        await async_setup_entry(mock_hass, config_entry)
+        mock_session.return_value.post.reset_mock()
+
+        # Act
+        service_call = MagicMock()
+        service_call.data = {
+            "device_id": "test_device_1",
+            "mode": "1",
+            "setpoint": 1000,
+            "from_time": datetime(2025, 1, 1, 10, 0, 0),
+            "to_time": datetime(2025, 1, 1, 12, 0, 0),
+        }
+        add_schedule_func = mock_hass.services.async_register.call_args[0][2]
+        await add_schedule_func(service_call)
+
+        # Assert
+        mock_session.return_value.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_add_schedule_service_multiple_devices(mock_hass):
+    """Test the add_schedule service with multiple devices."""
+    with patch(
+        "custom_components.homevolt_local.async_get_device_registry"
+    ) as mock_get_dr, patch(
+        "custom_components.homevolt_local.async_get_clientsession"
+    ) as mock_session:
+        # Arrange
+        mock_dr = MagicMock()
+        mock_get_dr.return_value = mock_dr
+
+        config_entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={CONF_MAIN_HOST: "http://localhost", "resource": "http://localhost/api"},
+            entry_id="test_entry",
+        )
+        mock_hass.config_entries.async_get_entry.return_value = config_entry
+        device_entry = MagicMock()
+        device_entry.config_entries = {config_entry.entry_id}
+        mock_dr.async_get.return_value = device_entry
+
+        mock_post_response = MagicMock()
+        mock_post_response.status = 200
+        mock_post_response.text = AsyncMock(return_value="OK")
+
+        mock_get_response = MagicMock()
+        mock_get_response.status = 200
+        mock_get_response.json = AsyncMock(return_value={})
+
+        mock_session.return_value.post.return_value = MagicMock(
+            __aenter__=AsyncMock(return_value=mock_post_response)
+        )
+        mock_session.return_value.get.return_value = MagicMock(
+            __aenter__=AsyncMock(return_value=mock_get_response)
+        )
+
+        await async_setup_entry(mock_hass, config_entry)
+        mock_session.return_value.post.reset_mock()
+
+        # Act
+        service_call = MagicMock()
+        service_call.data = {
+            "device_id": ["test_device_1", "test_device_2"],
+            "mode": "1",
+            "setpoint": 1000,
+            "from_time": datetime(2025, 1, 1, 10, 0, 0),
+            "to_time": datetime(2025, 1, 1, 12, 0, 0),
+        }
+        add_schedule_func = mock_hass.services.async_register.call_args[0][2]
+        await add_schedule_func(service_call)
+
+        # Assert
+        assert mock_session.return_value.post.call_count == 2
+
+
+if __name__ == "__main__":
     unittest.main()

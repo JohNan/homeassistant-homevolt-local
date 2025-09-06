@@ -110,66 +110,71 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def async_add_schedule(call: ServiceCall) -> None:
         """Handle the service call to add a schedule."""
         device_registry = async_get_device_registry(hass)
-        device_id = call.data.get("device_id")
+        device_ids = call.data.get("device_id")
 
-        if not device_id:
+        if not device_ids:
             _LOGGER.error("No device_id provided")
             return
 
-        device_entry = device_registry.async_get(device_id)
-        if not device_entry:
-            _LOGGER.error("Device not found: %s", device_id)
-            return
+        # Ensure device_ids is a list
+        if not isinstance(device_ids, list):
+            device_ids = [device_ids]
 
-        # Find the config entry associated with this device
-        config_entry_id = next(iter(device_entry.config_entries), None)
-        if not config_entry_id:
-            _LOGGER.error("Device %s is not associated with a config entry", device_id)
-            return
+        for device_id in device_ids:
+            device_entry = device_registry.async_get(device_id)
+            if not device_entry:
+                _LOGGER.error("Device not found: %s", device_id)
+                continue
 
-        config_entry = hass.config_entries.async_get_entry(config_entry_id)
-        if not config_entry:
-            _LOGGER.error("Config entry not found for device %s", device_id)
-            return
+            # Find the config entry associated with this device
+            config_entry_id = next(iter(device_entry.config_entries), None)
+            if not config_entry_id:
+                _LOGGER.error("Device %s is not associated with a config entry", device_id)
+                continue
 
-        # Extract connection details from the config entry
-        host = config_entry.data.get(CONF_MAIN_HOST)
-        username = (config_entry.data.get(CONF_USERNAME) or "").strip() or None
-        password = (config_entry.data.get(CONF_PASSWORD) or "").strip() or None
-        verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
+            config_entry = hass.config_entries.async_get_entry(config_entry_id)
+            if not config_entry:
+                _LOGGER.error("Config entry not found for device %s", device_id)
+                continue
 
-        if not host:
-            _LOGGER.error("No host found for device %s", device_id)
-            return
+            # Extract connection details from the config entry
+            host = config_entry.data.get(CONF_MAIN_HOST)
+            username = (config_entry.data.get(CONF_USERNAME) or "").strip() or None
+            password = (config_entry.data.get(CONF_PASSWORD) or "").strip() or None
+            verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
 
-        mode = call.data["mode"]
-        setpoint = call.data["setpoint"]
-        from_time = call.data["from_time"].strftime("%Y-%m-%dT%H:%M:%S")
-        to_time = call.data["to_time"].strftime("%Y-%m-%dT%H:%M:%S")
+            if not host:
+                _LOGGER.error("No host found for device %s", device_id)
+                continue
 
-        command = f"sched_add {mode} --setpoint {setpoint} --from={from_time} --to={to_time}"
-        url = f"{host}{EMS_RESOURCE_PATH}"
+            mode = call.data["mode"]
+            setpoint = call.data["setpoint"]
+            from_time = call.data["from_time"].strftime("%Y-%m-%dT%H:%M:%S")
+            to_time = call.data["to_time"].strftime("%Y-%m-%dT%H:%M:%S")
 
-        try:
-            session = async_get_clientsession(hass, verify_ssl=verify_ssl)
-            form_data = aiohttp.FormData()
-            form_data.add_field('cmd', command)
+            command = f"sched_add {mode} --setpoint {setpoint} --from={from_time} --to={to_time}"
+            url = f"{host}{EMS_RESOURCE_PATH}"
 
-            auth = aiohttp.BasicAuth(username, password) if username and password else None
+            try:
+                session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+                form_data = aiohttp.FormData()
+                form_data.add_field('cmd', command)
 
-            async with session.post(url, data=form_data, auth=auth) as response:
-                response_text = await response.text()
-                if response.status == 200:
-                    _LOGGER.info("Successfully sent command to %s: %s", host, command)
-                else:
-                    _LOGGER.error(
-                        "Failed to send command to %s. Status: %s, Response: %s",
-                        host,
-                        response.status,
-                        response_text,
-                    )
-        except aiohttp.ClientError as e:
-            _LOGGER.error("Error sending command to %s: %s", host, e)
+                auth = aiohttp.BasicAuth(username, password) if username and password else None
+
+                async with session.post(url, data=form_data, auth=auth) as response:
+                    response_text = await response.text()
+                    if response.status == 200:
+                        _LOGGER.info("Successfully sent command to %s: %s", host, command)
+                    else:
+                        _LOGGER.error(
+                            "Failed to send command to %s. Status: %s, Response: %s",
+                            host,
+                            response.status,
+                            response_text,
+                        )
+            except aiohttp.ClientError as e:
+                _LOGGER.error("Error sending command to %s: %s", host, e)
 
     hass.services.async_register(DOMAIN, "add_schedule", async_add_schedule)
 
