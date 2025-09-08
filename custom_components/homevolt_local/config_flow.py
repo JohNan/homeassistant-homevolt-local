@@ -38,7 +38,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): str,
         vol.Optional(CONF_USERNAME, default=""): str,
         vol.Optional(CONF_PASSWORD, default=""): str,
-        vol.Optional(CONF_VERIFY_SSL, default=True): bool,
+        vol.Optional(CONF_VERIFY_SSL, default=False): bool,
         vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
         vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): int,
     }
@@ -74,30 +74,33 @@ def is_valid_host(host: str) -> bool:
     return bool(host) and " " not in host
 
 
+def validate_protocol(host: str) -> bool:
+    """Validate that the host string includes a protocol."""
+    return host.startswith(("http://", "https://"))
+
+
 def construct_resource_url(host: str) -> str:
     """Construct the resource URL from the host."""
-    # Check if the host already includes a protocol (http:// or https://)
-    if not host.startswith(("http://", "https://")):
-        # Default to https if no protocol is specified
-        resource_url = f"https://{host}{EMS_RESOURCE_PATH}"
-    else:
-        # If protocol is already included, just append the path
-        resource_url = f"{host}{EMS_RESOURCE_PATH}"
-    return resource_url
+    # If protocol is already included, just append the path
+    return f"{host}{EMS_RESOURCE_PATH}"
 
 
 async def validate_host(
-        hass: HomeAssistant,
-        host: str,
-        username: str = None,
-        password: str = None,
-        verify_ssl: bool = True,
-        existing_hosts: list[str] = None
+    hass: HomeAssistant,
+    host: str,
+    username: str = None,
+    password: str = None,
+    verify_ssl: bool = True,
+    existing_hosts: list[str] = None,
 ) -> dict[str, Any]:
     """Validate a host and return its resource URL."""
-    # Validate the host
+    # Validate the host format
     if not is_valid_host(host):
         raise InvalidResource("Invalid IP or hostname format")
+
+    # Validate that a protocol is present
+    if not validate_protocol(host):
+        raise InvalidResource("Protocol (http:// or https://) is required")
 
     # Check if the host is already in the list
     if existing_hosts and host in existing_hosts:
@@ -106,38 +109,36 @@ async def validate_host(
     # Construct the resource URL
     resource_url = construct_resource_url(host)
 
-    # If username and password are provided, validate the connection
-    if username and password:
-        session = async_get_clientsession(hass, verify_ssl=verify_ssl)
-        try:
-            auth = aiohttp.BasicAuth(username, password)
-            async with session.get(resource_url, auth=auth) as response:
-                if response.status == 401:
-                    raise InvalidAuth("Invalid authentication")
-                elif response.status != 200:
-                    raise CannotConnect(f"Invalid response from API: {response.status}")
+    # Validate the connection
+    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+    try:
+        auth = aiohttp.BasicAuth(username, password) if username and password else None
+        async with session.get(resource_url, auth=auth) as response:
+            if response.status == 401:
+                raise InvalidAuth("Invalid authentication")
+            elif response.status != 200:
+                raise CannotConnect(f"Invalid response from API: {response.status}")
 
-                try:
-                    response_data = await response.json()
-                except ValueError:
-                    raise CannotConnect("Invalid response format (not JSON)")
+            try:
+                response_data = await response.json()
+            except ValueError:
+                raise CannotConnect("Invalid response format (not JSON)")
 
-                # Check if the response has the expected structure
-                if "aggregated" not in response_data:
-                    raise CannotConnect("Invalid API response format: 'aggregated' key missing")
+            # Check if the response has the expected structure
+            if "aggregated" not in response_data:
+                raise CannotConnect(
+                    "Invalid API response format: 'aggregated' key missing"
+                )
 
-        except aiohttp.ClientError as err:
-            raise CannotConnect(f"Connection error: {err}")
-        except (InvalidAuth, CannotConnect, InvalidResource, DuplicateHost) as err:
-            raise
-        except Exception as err:
-            raise Exception(f"Error validating API: {err}") from err
+    except aiohttp.ClientError as err:
+        raise CannotConnect(f"Connection error: {err}")
+    except (InvalidAuth, CannotConnect, InvalidResource, DuplicateHost) as err:
+        raise
+    except Exception as err:
+        raise Exception(f"Error validating API: {err}") from err
 
     # Return the host and resource URL
-    return {
-        "host": host,
-        "resource_url": resource_url
-    }
+    return {"host": host, "resource_url": resource_url}
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:

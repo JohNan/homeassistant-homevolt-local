@@ -22,12 +22,12 @@ class TestConfigFlow(unittest.TestCase):
     def test_construct_resource_url(self):
         """Test the construct_resource_url function."""
         self.assertEqual(
-            construct_resource_url("192.168.1.1"),
-            "https://192.168.1.1/ems.json"
-        )
-        self.assertEqual(
             construct_resource_url("http://192.168.1.1"),
             "http://192.168.1.1/ems.json"
+        )
+        self.assertEqual(
+            construct_resource_url("https://192.168.1.1"),
+            "https://192.168.1.1/ems.json"
         )
 
     @patch('custom_components.homevolt_local.config_flow.async_get_clientsession')
@@ -52,26 +52,30 @@ class TestConfigFlow(unittest.TestCase):
             mock_get_session.return_value = mock_session
 
             # Test success
-            result = await validate_host(hass, "192.168.1.1", "user", "pass")
-            self.assertEqual(result["host"], "192.168.1.1")
+            result = await validate_host(hass, "http://192.168.1.1", "user", "pass")
+            self.assertEqual(result["host"], "http://192.168.1.1")
 
             # Test InvalidAuth
             enter_mock.status = 401
             with self.assertRaises(InvalidAuth):
-                await validate_host(hass, "192.168.1.1", "user", "pass")
+                await validate_host(hass, "http://192.168.1.1", "user", "pass")
 
             # Test CannotConnect
             enter_mock.status = 500
             with self.assertRaises(CannotConnect):
-                await validate_host(hass, "192.168.1.1", "user", "pass")
+                await validate_host(hass, "http://192.168.1.1", "user", "pass")
 
-            # Test InvalidResource
+            # Test InvalidResource for invalid host
             with self.assertRaises(InvalidResource):
                 await validate_host(hass, "invalid host")
 
+            # Test InvalidResource for missing protocol
+            with self.assertRaises(InvalidResource):
+                await validate_host(hass, "192.168.1.1")
+
             # Test DuplicateHost
             with self.assertRaises(DuplicateHost):
-                await validate_host(hass, "192.168.1.1", existing_hosts=["192.168.1.1"])
+                await validate_host(hass, "http://192.168.1.1", existing_hosts=["http://192.168.1.1"])
 
         import asyncio
         asyncio.run(run_test())
