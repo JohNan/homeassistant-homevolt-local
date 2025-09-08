@@ -102,14 +102,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         },
     ),
     HomevoltSensorEntityDescription(
-        key="battery_soc",
-        name="Homevolt battery SoC",
-        device_class=SensorDeviceClass.BATTERY,
-        native_unit_of_measurement="%",
-        value_fn=lambda data, idx=0: float(data.ems[idx].bms_data[BMS_DATA_INDEX_DEVICE].soc) / 100 if idx < len(data.ems) else None,
-        device_specific=True,
-    ),
-    HomevoltSensorEntityDescription(
         key="total_soc",
         name="Homevolt Total SoC",
         device_class=SensorDeviceClass.BATTERY,
@@ -515,9 +507,27 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"device_status_{idx}",
+                        key=f"ems_{idx}_status",
                         name="Status",
+                        icon="mdi:information-outline",
                         value_fn=lambda data, i=idx: data.ems[i].ems_data.state_str,
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
+            # Add a SoC sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"ems_{idx}_soc",
+                        name="SoC",
+                        device_class=SensorDeviceClass.BATTERY,
+                        native_unit_of_measurement="%",
+                        state_class=SensorStateClass.MEASUREMENT,
+                        value_fn=lambda data, i=idx: float(data.ems[i].ems_data.soc_avg)
+                        / 10,
                         icon_fn=lambda data, i=idx: (
                             "mdi:battery-outline"
                             if float(data.ems[i].ems_data.soc_avg) < 5
@@ -533,7 +543,7 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"device_power_{idx}",
+                        key=f"ems_{idx}_power",
                         name="Power",
                         device_class=SensorDeviceClass.POWER,
                         native_unit_of_measurement="W",
@@ -549,13 +559,16 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"device_energy_produced_{idx}",
+                        key=f"ems_{idx}_energy_discharged",
                         name="Energy Discharged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL,
                         native_unit_of_measurement="kWh",
                         icon="mdi:battery-positive",
-                        value_fn=lambda data, i=idx: float(data.ems[i].ems_data.energy_produced) / 1000,
+                        value_fn=lambda data, i=idx: float(
+                            data.ems[i].ems_data.energy_produced
+                        )
+                        / 1000,
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -566,13 +579,16 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"device_energy_consumed_{idx}",
+                        key=f"ems_{idx}_energy_charged",
                         name="Energy Charged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL,
                         native_unit_of_measurement="kWh",
                         icon="mdi:battery-negative",
-                        value_fn=lambda data, i=idx: float(data.ems[i].ems_data.energy_consumed) / 1000,
+                        value_fn=lambda data, i=idx: float(
+                            data.ems[i].ems_data.energy_consumed
+                        )
+                        / 1000,
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -583,10 +599,12 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"device_error_{idx}",
+                        key=f"ems_{idx}_error",
                         name="Error",
                         icon="mdi:battery-unknown",
-                        value_fn=lambda data, i=idx: data.ems[i].error_str[:255] if data.ems[i].error_str else None,
+                        value_fn=lambda data, i=idx: data.ems[i].error_str[:255]
+                        if data.ems[i].error_str
+                        else None,
                         attrs_fn=lambda data, i=idx: {
                             ATTR_ERROR_STR: data.ems[i].error_str,
                         },
