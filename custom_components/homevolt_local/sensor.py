@@ -507,8 +507,8 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"ems_{idx}_status",
-                        name="Status",
+                        key=f"ems_{idx + 1}_status",
+                        name=f"EMS {idx + 1} Status",
                         icon="mdi:information-outline",
                         value_fn=lambda data, i=idx: data.ems[i].ems_data.state_str,
                         device_specific=True,
@@ -521,8 +521,8 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"ems_{idx}_soc",
-                        name="SoC",
+                        key=f"ems_{idx + 1}_soc",
+                        name=f"EMS {idx + 1} SoC",
                         device_class=SensorDeviceClass.BATTERY,
                         native_unit_of_measurement="%",
                         state_class=SensorStateClass.MEASUREMENT,
@@ -543,8 +543,8 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"ems_{idx}_power",
-                        name="Power",
+                        key=f"ems_{idx + 1}_power",
+                        name=f"EMS {idx + 1} Power",
                         device_class=SensorDeviceClass.POWER,
                         native_unit_of_measurement="W",
                         icon="mdi:battery-sync-outline",
@@ -559,8 +559,8 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"ems_{idx}_energy_discharged",
-                        name="Energy Discharged",
+                        key=f"ems_{idx + 1}_energy_discharged",
+                        name=f"EMS {idx + 1} Energy Discharged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL,
                         native_unit_of_measurement="kWh",
@@ -579,8 +579,8 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"ems_{idx}_energy_charged",
-                        name="Energy Charged",
+                        key=f"ems_{idx + 1}_energy_charged",
+                        name=f"EMS {idx + 1} Energy Charged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL,
                         native_unit_of_measurement="kWh",
@@ -599,8 +599,8 @@ async def async_setup_entry(
                 HomevoltSensor(
                     coordinator,
                     HomevoltSensorEntityDescription(
-                        key=f"ems_{idx}_error",
-                        name="Error",
+                        key=f"ems_{idx + 1}_error",
+                        name=f"EMS {idx + 1} Error",
                         icon="mdi:battery-unknown",
                         value_fn=lambda data, i=idx: data.ems[i].error_str[:255]
                         if data.ems[i].error_str
