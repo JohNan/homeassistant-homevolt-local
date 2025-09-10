@@ -85,8 +85,8 @@ class TestSensor(unittest.TestCase):
             self.assertIn("ems_2_status", entity_ids)
 
             # Expected names
-            self.assertIn("EMS 1 Status", names)
-            self.assertIn("EMS 2 Status", names)
+            self.assertIn("Homevolt Inverter 1 Status", names)
+            self.assertIn("Homevolt Inverter 2 Status", names)
 
         asyncio.run(run_test())
 
