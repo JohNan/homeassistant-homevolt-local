@@ -72,8 +72,8 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         value_fn=lambda data: data.aggregated.ems_data.state_str,
         icon_fn=lambda data: (
             "mdi:battery-outline"
-            if float(data.aggregated.ems_data.soc_avg) < 50
-            else f"mdi:battery-{int(round((float(data.aggregated.ems_data.soc_avg) / 10) / 10.0) * 10)}"
+            if float(data.aggregated.ems_data.soc_avg) < 500
+            else f"mdi:battery-{int(round((float(data.aggregated.ems_data.soc_avg) / 100) / 10.0) * 10)}"
         ),
         attrs_fn=lambda data: {
             ATTR_EMS: [ems.__dict__ for ems in data.ems] if data.ems else [],
@@ -527,11 +527,11 @@ async def async_setup_entry(
                         native_unit_of_measurement="%",
                         state_class=SensorStateClass.MEASUREMENT,
                         value_fn=lambda data, i=idx: float(data.ems[i].ems_data.soc_avg)
-                        / 10,
+                        / 100,
                         icon_fn=lambda data, i=idx: (
                             "mdi:battery-outline"
-                            if float(data.ems[i].ems_data.soc_avg) < 50
-                            else f"mdi:battery-{int(round((float(data.ems[i].ems_data.soc_avg) / 10) / 10.0) * 10)}"
+                            if float(data.ems[i].ems_data.soc_avg) < 500
+                            else f"mdi:battery-{int(round((float(data.ems[i].ems_data.soc_avg) / 100) / 10.0) * 10)}"
                         ),
                         device_specific=True,
                     ),
