@@ -16,10 +16,12 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF##*/v}" >> $GITHUB_OUTPUT
 
-      - name: Update manifest.json
-        run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" custom_components/homevolt_local/manifest.json
+      - name: "Set up Python"
+        uses: "actions/setup-python@v5"
+        with:
+          python-version: "3.12"
+      - name: "Update manifest.json"
+        run: 'python scripts/update_manifest_version.py ${{steps.get_version.outputs.VERSION}}'
 
       - name: Verify manifest version
         run: |
