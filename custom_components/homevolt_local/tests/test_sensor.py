@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, PropertyMock
 import asyncio
 
 from custom_components.homevolt_local.models import HomevoltData, ScheduleEntry
-from custom_components.homevolt_local.sensor import get_current_schedule, HomevoltSensor, HomevoltBmsSensor, HomevoltSensorEntityDescription, async_setup_entry
+from custom_components.homevolt_local.sensor import get_current_schedule, HomevoltSensor, HomevoltSensorEntityDescription, async_setup_entry
 from custom_components.homevolt_local.const import DOMAIN
 from .test_utils import mock_homevolt_data
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -79,7 +79,7 @@ class TestSensor(unittest.TestCase):
         asyncio.run(run_test())
 
     def test_bms_sensor_creation(self):
-        """Test the creation of HomevoltBmsSensor entities."""
+        """Test the creation of BMS sensor entities."""
 
         async def run_test():
             hass = MagicMock()
@@ -99,15 +99,15 @@ class TestSensor(unittest.TestCase):
 
             added_sensors = async_add_entities.call_args[0][0]
 
-            bms_sensors = [s for s in added_sensors if isinstance(s, HomevoltBmsSensor)]
+            bms_sensors = [s for s in added_sensors if "bms" in s.entity_description.key]
 
             self.assertEqual(len(bms_sensors), 2)
 
-            self.assertEqual(bms_sensors[0].unique_id, "homevolt_local_bms_ecu_0_0")
-            self.assertEqual(bms_sensors[0].name, "Homevolt Inverter ecu_0 Battery 1 SoC")
+            self.assertEqual(bms_sensors[0].entity_description.key, "ems_1_bms_1_soc")
+            self.assertEqual(bms_sensors[0].name, "Homevolt Inverter 1 Battery 1 SoC")
 
-            self.assertEqual(bms_sensors[1].unique_id, "homevolt_local_bms_ecu_0_1")
-            self.assertEqual(bms_sensors[1].name, "Homevolt Inverter ecu_0 Battery 2 SoC")
+            self.assertEqual(bms_sensors[1].entity_description.key, "ems_1_bms_2_soc")
+            self.assertEqual(bms_sensors[1].name, "Homevolt Inverter 1 Battery 2 SoC")
 
         asyncio.run(run_test())
 

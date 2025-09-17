@@ -485,74 +485,6 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
         self.async_write_ha_state()
 
 
-class HomevoltBmsSensor(CoordinatorEntity[HomevoltData], SensorEntity):
-    """Representation of a Homevolt BMS sensor."""
-
-    def __init__(
-        self,
-        coordinator: HomevoltDataUpdateCoordinator,
-        ems_index: int,
-        bms_index: int,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self.ems_index = ems_index
-        self.bms_index = bms_index
-
-        ems_device = self.coordinator.data.ems[self.ems_index]
-        ecu_id = ems_device.ecu_id or f"unknown_{self.ems_index}"
-
-        self._attr_unique_id = f"{DOMAIN}_bms_{ecu_id}_{self.bms_index}"
-        self.entity_id = self._attr_unique_id
-        self._attr_name = f"Homevolt Inverter {ecu_id} Battery {self.bms_index + 1} SoC"
-        self._attr_device_class = SensorDeviceClass.BATTERY
-        self._attr_native_unit_of_measurement = "%"
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-
-        self._attr_device_info = self.device_info
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information about this Homevolt device."""
-
-        ems_device = self.coordinator.data.ems[self.ems_index]
-        ecu_id = ems_device.ecu_id or f"unknown_{self.ems_index}"
-
-        # This creates a new device for each battery, linked to the inverter.
-        return DeviceInfo(
-            identifiers={(DOMAIN, f"bms_{ecu_id}_{self.bms_index}")},
-            name=f"Homevolt Inverter {ecu_id} Battery {self.bms_index + 1}",
-            manufacturer="Homevolt",
-            model="Battery",
-            via_device=(DOMAIN, f"ems_{ecu_id}"),
-        )
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        if self.coordinator.data is None:
-            self._attr_native_value = None
-            self.async_write_ha_state()
-            return
-
-        try:
-            bms_data = self.coordinator.data.ems[self.ems_index].bms_data[self.bms_index]
-            self._attr_native_value = float(bms_data.soc) / 100
-
-            soc_val = float(bms_data.soc)
-            self._attr_icon = (
-                "mdi:battery-outline"
-                if soc_val < 500
-                else f"mdi:battery-{int(round((soc_val / 100) / 10.0) * 10)}"
-            )
-
-        except (KeyError, TypeError, IndexError, ValueError, AttributeError) as err:
-            _LOGGER.error("Error extracting sensor data for %s: %s", self.name, err)
-            self._attr_native_value = None
-
-        self.async_write_ha_state()
-
-
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -684,12 +616,25 @@ async def async_setup_entry(
 
             # Create battery sensors for this ems device
             if ems_device.bms_data:
-                for bms_idx, _ in enumerate(ems_device.bms_data):
+                for bms_idx, bms_device in enumerate(ems_device.bms_data):
                     sensors.append(
-                        HomevoltBmsSensor(
+                        HomevoltSensor(
                             coordinator,
+                            HomevoltSensorEntityDescription(
+                                key=f"ems_{idx + 1}_bms_{bms_idx + 1}_soc",
+                                name=f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1} SoC",
+                                device_class=SensorDeviceClass.BATTERY,
+                                native_unit_of_measurement="%",
+                                state_class=SensorStateClass.MEASUREMENT,
+                                value_fn=lambda data, i=idx, j=bms_idx: float(data.ems[i].bms_data[j].soc) / 100,
+                                icon_fn=lambda data, i=idx, j=bms_idx: (
+                                    "mdi:battery-outline"
+                                    if float(data.ems[i].bms_data[j].soc) < 500
+                                    else f"mdi:battery-{int(round((float(data.ems[i].bms_data[j].soc) / 100) / 10.0) * 10)}"
+                                ),
+                                device_specific=True,
+                            ),
                             ems_index=idx,
-                            bms_index=bms_idx,
                         )
                     )
 
