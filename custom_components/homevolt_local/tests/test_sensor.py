@@ -78,5 +78,38 @@ class TestSensor(unittest.TestCase):
 
         asyncio.run(run_test())
 
+    def test_bms_sensor_creation(self):
+        """Test the creation of BMS sensor entities."""
+
+        async def run_test():
+            hass = MagicMock()
+            hass.data = {DOMAIN: {}}
+
+            config_entry = MockConfigEntry(domain=DOMAIN, data={}, entry_id="test")
+
+            mock_coordinator = MagicMock()
+            mock_coordinator.data = mock_homevolt_data(num_ems=1, num_bms_per_ems=2)
+            mock_coordinator.resource = "http://192.168.1.1/api/v1/data"
+
+            hass.data[DOMAIN] = {config_entry.entry_id: mock_coordinator}
+
+            async_add_entities = MagicMock()
+
+            await async_setup_entry(hass, config_entry, async_add_entities)
+
+            added_sensors = async_add_entities.call_args[0][0]
+
+            bms_sensors = [s for s in added_sensors if "bms" in s.entity_description.key]
+
+            self.assertEqual(len(bms_sensors), 2)
+
+            self.assertEqual(bms_sensors[0].entity_description.key, "ems_1_bms_1_soc")
+            self.assertEqual(bms_sensors[0].name, "Homevolt Inverter 1 Battery 1 SoC")
+
+            self.assertEqual(bms_sensors[1].entity_description.key, "ems_1_bms_2_soc")
+            self.assertEqual(bms_sensors[1].name, "Homevolt Inverter 1 Battery 2 SoC")
+
+        asyncio.run(run_test())
+
 if __name__ == '__main__':
     unittest.main()

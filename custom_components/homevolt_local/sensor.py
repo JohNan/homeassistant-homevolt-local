@@ -501,7 +501,7 @@ async def async_setup_entry(
     # Check if we have data and if the ems array exists
     if coordinator.data and coordinator.data.ems:
         # Create device-specific sensors for each device in the ems array
-        for idx, _ in enumerate(coordinator.data.ems):
+        for idx, ems_device in enumerate(coordinator.data.ems):
             # Add a status sensor for each device
             sensors.append(
                 HomevoltSensor(
@@ -613,6 +613,30 @@ async def async_setup_entry(
                     ems_index=idx,
                 )
             )
+
+            # Create battery sensors for this ems device
+            if ems_device.bms_data:
+                for bms_idx, bms_device in enumerate(ems_device.bms_data):
+                    sensors.append(
+                        HomevoltSensor(
+                            coordinator,
+                            HomevoltSensorEntityDescription(
+                                key=f"ems_{idx + 1}_bms_{bms_idx + 1}_soc",
+                                name=f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1} SoC",
+                                device_class=SensorDeviceClass.BATTERY,
+                                native_unit_of_measurement="%",
+                                state_class=SensorStateClass.MEASUREMENT,
+                                value_fn=lambda data, i=idx, j=bms_idx: float(data.ems[i].bms_data[j].soc) / 100,
+                                icon_fn=lambda data, i=idx, j=bms_idx: (
+                                    "mdi:battery-outline"
+                                    if float(data.ems[i].bms_data[j].soc) < 500
+                                    else f"mdi:battery-{int(round((float(data.ems[i].bms_data[j].soc) / 100) / 10.0) * 10)}"
+                                ),
+                                device_specific=True,
+                            ),
+                            ems_index=idx,
+                        )
+                    )
 
     # Check if we have data and if the sensors array exists
     if coordinator.data and coordinator.data.sensors:
