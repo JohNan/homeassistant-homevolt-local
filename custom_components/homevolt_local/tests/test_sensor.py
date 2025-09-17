@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, PropertyMock
 import asyncio
 
 from custom_components.homevolt_local.models import HomevoltData, ScheduleEntry
-from custom_components.homevolt_local.sensor import get_current_schedule, HomevoltSensor, HomevoltSensorEntityDescription, async_setup_entry
+from custom_components.homevolt_local.sensor import get_current_schedule, HomevoltSensor, HomevoltBmsSensor, HomevoltSensorEntityDescription, async_setup_entry
 from custom_components.homevolt_local.const import DOMAIN
 from .test_utils import mock_homevolt_data
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -75,6 +75,39 @@ class TestSensor(unittest.TestCase):
 
             self.assertIn("Homevolt Inverter 1 Status", names)
             self.assertIn("Homevolt Inverter 2 Status", names)
+
+        asyncio.run(run_test())
+
+    def test_bms_sensor_creation(self):
+        """Test the creation of HomevoltBmsSensor entities."""
+
+        async def run_test():
+            hass = MagicMock()
+            hass.data = {DOMAIN: {}}
+
+            config_entry = MockConfigEntry(domain=DOMAIN, data={}, entry_id="test")
+
+            mock_coordinator = MagicMock()
+            mock_coordinator.data = mock_homevolt_data(num_ems=1, num_bms_per_ems=2)
+            mock_coordinator.resource = "http://192.168.1.1/api/v1/data"
+
+            hass.data[DOMAIN] = {config_entry.entry_id: mock_coordinator}
+
+            async_add_entities = MagicMock()
+
+            await async_setup_entry(hass, config_entry, async_add_entities)
+
+            added_sensors = async_add_entities.call_args[0][0]
+
+            bms_sensors = [s for s in added_sensors if isinstance(s, HomevoltBmsSensor)]
+
+            self.assertEqual(len(bms_sensors), 2)
+
+            self.assertEqual(bms_sensors[0].unique_id, "homevolt_local_bms_ecu_0_0")
+            self.assertEqual(bms_sensors[0].name, "Homevolt Inverter ecu_0 Battery 1 SoC")
+
+            self.assertEqual(bms_sensors[1].unique_id, "homevolt_local_bms_ecu_0_1")
+            self.assertEqual(bms_sensors[1].name, "Homevolt Inverter ecu_0 Battery 2 SoC")
 
         asyncio.run(run_test())
 
