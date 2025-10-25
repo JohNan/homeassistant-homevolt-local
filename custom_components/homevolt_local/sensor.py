@@ -516,6 +516,26 @@ async def async_setup_entry(
                     ems_index=idx,
                 )
             )
+            # Add a temperature sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"ems_{idx + 1}_temp",
+                        name=f"Homevolt Inverter {idx + 1} Temperature",
+                        device_class=SensorDeviceClass.TEMPERATURE,
+                        native_unit_of_measurement="°C",
+                        state_class=SensorStateClass.MEASUREMENT,
+                        value_fn=lambda data, i=idx: float(
+                            data.ems[i].ems_data.sys_temp
+                        )
+                        / 10,
+                        icon="mdi:thermometer",
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
             # Add a SoC sensor for each device
             sensors.append(
                 HomevoltSensor(
