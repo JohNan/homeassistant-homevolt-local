@@ -522,7 +522,7 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_temp",
-                        name=f"Homevolt Inverter {idx + 1} Temperature",
+                        name=f"Homevolt Inverter {idx + 1} Inverter Temperature",
                         device_class=SensorDeviceClass.TEMPERATURE,
                         native_unit_of_measurement="°C",
                         state_class=SensorStateClass.MEASUREMENT,
@@ -652,6 +652,40 @@ async def async_setup_entry(
                                     if float(data.ems[i].bms_data[j].soc) < 500
                                     else f"mdi:battery-{int(round((float(data.ems[i].bms_data[j].soc) / 100) / 10.0) * 10)}"
                                 ),
+                                device_specific=True,
+                            ),
+                            ems_index=idx,
+                        )
+                    )
+                    # Add a max temperature sensor for each battery
+                    sensors.append(
+                        HomevoltSensor(
+                            coordinator,
+                            HomevoltSensorEntityDescription(
+                                key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmax",
+                                name=f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Max Temperature",
+                                device_class=SensorDeviceClass.TEMPERATURE,
+                                native_unit_of_measurement="°C",
+                                state_class=SensorStateClass.MEASUREMENT,
+                                value_fn=lambda data, i=idx, j=bms_idx: float(data.ems[i].bms_data[j].tmax) / 10,
+                                icon="mdi:thermometer-chevron-up",
+                                device_specific=True,
+                            ),
+                            ems_index=idx,
+                        )
+                    )
+                    # Add a min temperature sensor for each battery
+                    sensors.append(
+                        HomevoltSensor(
+                            coordinator,
+                            HomevoltSensorEntityDescription(
+                                key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmin",
+                                name=f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Min Temperature",
+                                device_class=SensorDeviceClass.TEMPERATURE,
+                                native_unit_of_measurement="°C",
+                                state_class=SensorStateClass.MEASUREMENT,
+                                value_fn=lambda data, i=idx, j=bms_idx: float(data.ems[i].bms_data[j].tmin) / 10,
+                                icon="mdi:thermometer-chevron-down",
                                 device_specific=True,
                             ),
                             ems_index=idx,

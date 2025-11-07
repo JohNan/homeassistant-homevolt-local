@@ -101,13 +101,24 @@ class TestSensor(unittest.TestCase):
 
             bms_sensors = [s for s in added_sensors if "bms" in s.entity_description.key]
 
-            self.assertEqual(len(bms_sensors), 2)
+            self.assertEqual(len(bms_sensors), 6)
+
+            # Sort sensors by key for consistent order
+            bms_sensors.sort(key=lambda s: s.entity_description.key)
 
             self.assertEqual(bms_sensors[0].entity_description.key, "ems_1_bms_1_soc")
             self.assertEqual(bms_sensors[0].name, "Homevolt Inverter 1 Battery 1 SoC")
+            self.assertEqual(bms_sensors[1].entity_description.key, "ems_1_bms_1_tmax")
+            self.assertEqual(bms_sensors[1].name, "Homevolt Inverter 1 Battery 1 Max Temperature")
+            self.assertEqual(bms_sensors[2].entity_description.key, "ems_1_bms_1_tmin")
+            self.assertEqual(bms_sensors[2].name, "Homevolt Inverter 1 Battery 1 Min Temperature")
 
-            self.assertEqual(bms_sensors[1].entity_description.key, "ems_1_bms_2_soc")
-            self.assertEqual(bms_sensors[1].name, "Homevolt Inverter 1 Battery 2 SoC")
+            self.assertEqual(bms_sensors[3].entity_description.key, "ems_1_bms_2_soc")
+            self.assertEqual(bms_sensors[3].name, "Homevolt Inverter 1 Battery 2 SoC")
+            self.assertEqual(bms_sensors[4].entity_description.key, "ems_1_bms_2_tmax")
+            self.assertEqual(bms_sensors[4].name, "Homevolt Inverter 1 Battery 2 Max Temperature")
+            self.assertEqual(bms_sensors[5].entity_description.key, "ems_1_bms_2_tmin")
+            self.assertEqual(bms_sensors[5].name, "Homevolt Inverter 1 Battery 2 Min Temperature")
 
         asyncio.run(run_test())
 
