@@ -2,7 +2,7 @@ add_schedule:
   name: Add Schedule
   description: Adds a new schedule to the Homevolt battery.
   target:
-    device:
+    entity:
       integration: homevolt_local
   fields:
     mode:
