@@ -1,10 +1,11 @@
 """Sensor platform for Homevolt Local integration."""
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Union
+from datetime import datetime
+from typing import Any, Callable
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -14,8 +15,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -26,7 +26,6 @@ from .const import (
     ATTR_ERROR_STR,
     ATTR_PHASE,
     ATTR_SENSORS,
-    BMS_DATA_INDEX_DEVICE,
     BMS_DATA_INDEX_TOTAL,
     DOMAIN,
     SENSOR_TYPE_GRID,
@@ -56,12 +55,24 @@ def get_current_schedule(data: HomevoltData) -> str:
 class HomevoltSensorEntityDescription(SensorEntityDescription):
     """Describes Homevolt sensor entity."""
 
-    value_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], Any] = None
-    icon_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], str] = None
-    attrs_fn: Callable[[Union[HomevoltData, Dict[str, Any]]], Dict[str, Any]] = None
-    device_specific: bool = False  # Whether this sensor is specific to a device in the ems array
-    sensor_specific: bool = False  # Whether this sensor is specific to a device in the sensors array
-    sensor_type: str = None  # The type of sensor this entity is for (grid, solar, load)
+    value_fn: Callable[[HomevoltData], Any] | None = None
+    icon_fn: Callable[[HomevoltData], str] | None = None
+    attrs_fn: Callable[[HomevoltData], dict[str, Any]] | None = None
+    device_specific: bool = (
+        False  # Whether this sensor is specific to a device in the ems array
+    )
+    sensor_specific: bool = (
+        False  # Whether this sensor is specific to a device in the sensors array
+    )
+    sensor_type: str | None = None  # Type of sensor: grid, solar, load
+
+
+def _get_battery_icon(soc_avg: float) -> str:
+    """Get battery icon based on state of charge."""
+    soc = float(soc_avg)
+    if soc < 500:
+        return "mdi:battery-outline"
+    return f"mdi:battery-{int(round((soc / 100) / 10.0) * 10)}"
 
 
 SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
@@ -70,15 +81,13 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="ems",
         name="Homevolt Status",
         value_fn=lambda data: data.aggregated.ems_data.state_str,
-        icon_fn=lambda data: (
-            "mdi:battery-outline"
-            if float(data.aggregated.ems_data.soc_avg) < 500
-            else f"mdi:battery-{int(round((float(data.aggregated.ems_data.soc_avg) / 100) / 10.0) * 10)}"
-        ),
+        icon_fn=lambda data: _get_battery_icon(data.aggregated.ems_data.soc_avg),
         attrs_fn=lambda data: {
             ATTR_EMS: [ems.__dict__ for ems in data.ems] if data.ems else [],
             ATTR_AGGREGATED: data.aggregated.__dict__ if data.aggregated else {},
-            ATTR_SENSORS: [sensor.__dict__ for sensor in data.sensors] if data.sensors else [],
+            ATTR_SENSORS: [sensor.__dict__ for sensor in data.sensors]
+            if data.sensors
+            else [],
         },
     ),
     HomevoltSensorEntityDescription(
@@ -96,7 +105,9 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="ems_error",
         name="Homevolt Error",
         icon="mdi:battery-unknown",
-        value_fn=lambda data: data.aggregated.error_str[:255] if data.aggregated.error_str else None,
+        value_fn=lambda data: data.aggregated.error_str[:255]
+        if data.aggregated.error_str
+        else None,
         attrs_fn=lambda data: {
             ATTR_ERROR_STR: data.aggregated.error_str,
         },
@@ -106,7 +117,11 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         name="Homevolt Total SoC",
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement="%",
-        value_fn=lambda data: float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc) / 100 if data.aggregated.bms_data and len(data.aggregated.bms_data) > BMS_DATA_INDEX_TOTAL else None,
+        value_fn=lambda data: float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc)
+        / 100
+        if data.aggregated.bms_data
+        and len(data.aggregated.bms_data) > BMS_DATA_INDEX_TOTAL
+        else None,
     ),
     HomevoltSensorEntityDescription(
         key="power",
@@ -143,9 +158,13 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="W",
         icon="mdi:transmission-tower",
-        value_fn=lambda data: next((s.total_power for s in data.sensors if s.type == SENSOR_TYPE_GRID), None),
+        value_fn=lambda data: next(
+            (s.total_power for s in data.sensors if s.type == SENSOR_TYPE_GRID), None
+        ),
         attrs_fn=lambda data: {
-            ATTR_PHASE: next((s.phase for s in data.sensors if s.type == SENSOR_TYPE_GRID), None),
+            ATTR_PHASE: next(
+                (s.phase for s in data.sensors if s.type == SENSOR_TYPE_GRID), None
+            ),
         },
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_GRID,
@@ -157,7 +176,10 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
         icon="mdi:transmission-tower-import",
-        value_fn=lambda data: next((s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_GRID), None),
+        value_fn=lambda data: next(
+            (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+            None,
+        ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_GRID,
     ),
@@ -168,11 +190,13 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
         icon="mdi:transmission-tower-export",
-        value_fn=lambda data: next((s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_GRID), None),
+        value_fn=lambda data: next(
+            (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+            None,
+        ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_GRID,
     ),
-
     # Solar sensors
     HomevoltSensorEntityDescription(
         key="solar_power",
@@ -181,9 +205,13 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="W",
         icon="mdi:solar-power",
-        value_fn=lambda data: next((s.total_power for s in data.sensors if s.type == SENSOR_TYPE_SOLAR), None),
+        value_fn=lambda data: next(
+            (s.total_power for s in data.sensors if s.type == SENSOR_TYPE_SOLAR), None
+        ),
         attrs_fn=lambda data: {
-            ATTR_PHASE: next((s.phase for s in data.sensors if s.type == SENSOR_TYPE_SOLAR), None),
+            ATTR_PHASE: next(
+                (s.phase for s in data.sensors if s.type == SENSOR_TYPE_SOLAR), None
+            ),
         },
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_SOLAR,
@@ -195,7 +223,10 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
         icon="mdi:solar-power-variant",
-        value_fn=lambda data: next((s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR), None),
+        value_fn=lambda data: next(
+            (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
+            None,
+        ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_SOLAR,
     ),
@@ -206,11 +237,13 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
         icon="mdi:solar-power-variant-outline",
-        value_fn=lambda data: next((s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR), None),
+        value_fn=lambda data: next(
+            (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
+            None,
+        ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_SOLAR,
     ),
-
     # Load sensors
     HomevoltSensorEntityDescription(
         key="load_power",
@@ -219,9 +252,13 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="W",
         icon="mdi:home-lightning-bolt",
-        value_fn=lambda data: next((s.total_power for s in data.sensors if s.type == SENSOR_TYPE_LOAD), None),
+        value_fn=lambda data: next(
+            (s.total_power for s in data.sensors if s.type == SENSOR_TYPE_LOAD), None
+        ),
         attrs_fn=lambda data: {
-            ATTR_PHASE: next((s.phase for s in data.sensors if s.type == SENSOR_TYPE_LOAD), None),
+            ATTR_PHASE: next(
+                (s.phase for s in data.sensors if s.type == SENSOR_TYPE_LOAD), None
+            ),
         },
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_LOAD,
@@ -233,7 +270,10 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
         icon="mdi:home-import-outline",
-        value_fn=lambda data: next((s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_LOAD), None),
+        value_fn=lambda data: next(
+            (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
+            None,
+        ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_LOAD,
     ),
@@ -244,24 +284,27 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="kWh",
         icon="mdi:home-export-outline",
-        value_fn=lambda data: next((s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_LOAD), None),
+        value_fn=lambda data: next(
+            (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
+            None,
+        ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_LOAD,
     ),
 )
 
 
-class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
+class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEntity):
     """Representation of a Homevolt sensor."""
 
     entity_description: HomevoltSensorEntityDescription
 
     def __init__(
-        self, 
+        self,
         coordinator: HomevoltDataUpdateCoordinator,
         description: HomevoltSensorEntityDescription,
-        ems_index: int = None,
-        sensor_index: int = None,
+        ems_index: int | None = None,
+        sensor_index: int | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -272,11 +315,12 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
         # Create a unique ID based on the device properties if available
         if ems_index is not None and coordinator.data and coordinator.data.ems:
             try:
-                # Use the ecu_id for a consistent unique ID across different IP addresses
+                # Use the ecu_id for a consistent unique ID
+                # across different IP addresses
                 ems_device = coordinator.data.ems[ems_index]
                 ecu_id = ems_device.ecu_id or f"unknown_{ems_index}"
                 self._attr_unique_id = f"{DOMAIN}_{description.key}_ems_{ecu_id}"
-            except (IndexError):
+            except IndexError:
                 # Fallback to a generic unique ID if we can't get the ecu_id
                 self._attr_unique_id = f"{DOMAIN}_{description.key}_ems_{ems_index}"
         elif sensor_index is not None and coordinator.data and coordinator.data.sensors:
@@ -285,11 +329,14 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
                 sensor_data = coordinator.data.sensors[sensor_index]
                 euid = sensor_data.euid or f"unknown_{sensor_index}"
                 self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{euid}"
-            except (IndexError):
+            except IndexError:
                 # Fallback to a generic unique ID if we can't get the euid
-                self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{sensor_index}"
+                self._attr_unique_id = (
+                    f"{DOMAIN}_{description.key}_sensor_{sensor_index}"
+                )
         else:
-            # For aggregated sensors, use the host from the resource URL for a consistent unique ID
+            # For aggregated sensors, use the host from the resource URL
+            # for a consistent unique ID
             host = coordinator.resource.split("://")[1].split("/")[0]
             self._attr_unique_id = f"{DOMAIN}_{description.key}_{host}"
 
@@ -298,20 +345,28 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information about this Homevolt device."""
-        # Main aggregated device ID - use the host from the resource URL to make it consistent
-        # across different config entries for the same physical system
+        # Main aggregated device ID - use the host from the resource URL
+        # to make it consistent across different config entries
         host = self.coordinator.resource.split("://")[1].split("/")[0]
         main_device_id = f"homevolt_{host}"
 
-        if self.ems_index is not None and self.coordinator.data and self.coordinator.data.ems:
+        if (
+            self.ems_index is not None
+            and self.coordinator.data
+            and self.coordinator.data.ems
+        ):
             # Get device-specific information from the ems data
             try:
                 ems_device = self.coordinator.data.ems[self.ems_index]
                 ecu_id = ems_device.ecu_id or f"unknown_{self.ems_index}"
-                serial_number = ems_device.inv_info.serial_number if ems_device.inv_info else ""
+                serial_number = (
+                    ems_device.inv_info.serial_number if ems_device.inv_info else ""
+                )
 
                 # Try to get more detailed information for the device name
-                fw_version = ems_device.ems_info.fw_version if ems_device.ems_info else ""
+                fw_version = (
+                    ems_device.ems_info.fw_version if ems_device.ems_info else ""
+                )
 
                 # Use the ecu_id as the unique identifier, which should be consistent
                 # across different IP addresses for the same physical device
@@ -325,7 +380,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
                     sw_version=fw_version,
                     hw_version=serial_number,
                 )
-            except (IndexError):
+            except IndexError:
                 # Fallback to a generic device info if we can't get specific info
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"ems_unknown_{self.ems_index}")},
@@ -335,7 +390,11 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
                     entry_type=DeviceEntryType.SERVICE,
                     via_device=(DOMAIN, main_device_id),  # Link to the main device
                 )
-        elif self.sensor_index is not None and self.coordinator.data and self.coordinator.data.sensors:
+        elif (
+            self.sensor_index is not None
+            and self.coordinator.data
+            and self.coordinator.data.sensors
+        ):
             # Get device-specific information from the sensors data
             try:
                 sensor_data = self.coordinator.data.sensors[self.sensor_index]
@@ -356,7 +415,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
                     entry_type=DeviceEntryType.SERVICE,
                     via_device=(DOMAIN, main_device_id),  # Link to the main device
                 )
-            except (IndexError):
+            except IndexError:
                 # Fallback to a generic device info if we can't get specific info
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"sensor_unknown_{self.sensor_index}")},
@@ -393,7 +452,8 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
                 # Verify the device index is valid
                 if len(data.ems) <= self.ems_index:
                     _LOGGER.error(
-                        "Device index %s is out of range for %s (only %s devices available)",
+                        "Device index %s is out of range for %s "
+                        "(only %s devices available)",
                         self.ems_index,
                         self.entity_description.name,
                         len(data.ems),
@@ -408,7 +468,8 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
                 # Verify the sensor index is valid
                 if len(data.sensors) <= self.sensor_index:
                     _LOGGER.error(
-                        "Sensor index %s is out of range for %s (only %s sensors available)",
+                        "Sensor index %s is out of range for %s "
+                        "(only %s sensors available)",
                         self.sensor_index,
                         self.entity_description.name,
                         len(data.sensors),
@@ -469,16 +530,26 @@ class HomevoltSensor(CoordinatorEntity[HomevoltData], SensorEntity):
             if self.entity_description.attrs_fn:
                 if self.ems_index is not None:
                     # For device-specific sensors, pass the device index to the attrs_fn
-                    self._attr_extra_state_attributes = self.entity_description.attrs_fn(data)
+                    self._attr_extra_state_attributes = (
+                        self.entity_description.attrs_fn(data)
+                    )
                 elif self.sensor_index is not None:
                     # For sensor-specific sensors, pass the sensor index to the attrs_fn
-                    self._attr_extra_state_attributes = self.entity_description.attrs_fn(data)
+                    self._attr_extra_state_attributes = (
+                        self.entity_description.attrs_fn(data)
+                    )
                 else:
                     # For aggregated sensors, just pass the data
-                    self._attr_extra_state_attributes = self.entity_description.attrs_fn(data)
+                    self._attr_extra_state_attributes = (
+                        self.entity_description.attrs_fn(data)
+                    )
 
         except (KeyError, TypeError, IndexError, ValueError, AttributeError) as err:
-            _LOGGER.error("Error extracting sensor data for %s: %s", self.entity_description.name, err)
+            _LOGGER.error(
+                "Error extracting sensor data for %s: %s",
+                self.entity_description.name,
+                err,
+            )
             self._attr_native_value = None
             self._attr_extra_state_attributes = {}
 
@@ -548,10 +619,8 @@ async def async_setup_entry(
                         state_class=SensorStateClass.MEASUREMENT,
                         value_fn=lambda data, i=idx: float(data.ems[i].ems_data.soc_avg)
                         / 100,
-                        icon_fn=lambda data, i=idx: (
-                            "mdi:battery-outline"
-                            if float(data.ems[i].ems_data.soc_avg) < 500
-                            else f"mdi:battery-{int(round((float(data.ems[i].ems_data.soc_avg) / 100) / 10.0) * 10)}"
+                        icon_fn=lambda data, i=idx: _get_battery_icon(
+                            data.ems[i].ems_data.soc_avg
                         ),
                         device_specific=True,
                     ),
@@ -636,21 +705,22 @@ async def async_setup_entry(
 
             # Create battery sensors for this ems device
             if ems_device.bms_data:
-                for bms_idx, bms_device in enumerate(ems_device.bms_data):
+                for bms_idx, _bms_device in enumerate(ems_device.bms_data):
                     sensors.append(
                         HomevoltSensor(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_soc",
-                                name=f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1} SoC",
+                                name=f"Inverter {idx + 1} Battery {bms_idx + 1} SoC",
                                 device_class=SensorDeviceClass.BATTERY,
                                 native_unit_of_measurement="%",
                                 state_class=SensorStateClass.MEASUREMENT,
-                                value_fn=lambda data, i=idx, j=bms_idx: float(data.ems[i].bms_data[j].soc) / 100,
+                                value_fn=lambda data, i=idx, j=bms_idx: float(
+                                    data.ems[i].bms_data[j].soc
+                                )
+                                / 100,
                                 icon_fn=lambda data, i=idx, j=bms_idx: (
-                                    "mdi:battery-outline"
-                                    if float(data.ems[i].bms_data[j].soc) < 500
-                                    else f"mdi:battery-{int(round((float(data.ems[i].bms_data[j].soc) / 100) / 10.0) * 10)}"
+                                    _get_battery_icon(data.ems[i].bms_data[j].soc)
                                 ),
                                 device_specific=True,
                             ),
@@ -663,11 +733,14 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmax",
-                                name=f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Max Temperature",
+                                name=f"Inv {idx + 1} Batt {bms_idx + 1} Max Temp",
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement="°C",
                                 state_class=SensorStateClass.MEASUREMENT,
-                                value_fn=lambda data, i=idx, j=bms_idx: float(data.ems[i].bms_data[j].tmax) / 10,
+                                value_fn=lambda data, i=idx, j=bms_idx: float(
+                                    data.ems[i].bms_data[j].tmax
+                                )
+                                / 10,
                                 icon="mdi:thermometer-chevron-up",
                                 device_specific=True,
                             ),
@@ -680,11 +753,14 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmin",
-                                name=f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Min Temperature",
+                                name=f"Inv {idx + 1} Batt {bms_idx + 1} Min Temp",
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement="°C",
                                 state_class=SensorStateClass.MEASUREMENT,
-                                value_fn=lambda data, i=idx, j=bms_idx: float(data.ems[i].bms_data[j].tmin) / 10,
+                                value_fn=lambda data, i=idx, j=bms_idx: float(
+                                    data.ems[i].bms_data[j].tmin
+                                )
+                                / 10,
                                 icon="mdi:thermometer-chevron-down",
                                 device_specific=True,
                             ),
@@ -714,9 +790,14 @@ async def async_setup_entry(
                 if description.sensor_type in available_sensor_types:
                     # Find the index of the sensor with this type
                     for idx, sensor in enumerate(sensors_data):
-                        if sensor.type == description.sensor_type and sensor.available is not False:
+                        if (
+                            sensor.type == description.sensor_type
+                            and sensor.available is not False
+                        ):
                             # Create a sensor for this type
-                            sensors.append(HomevoltSensor(coordinator, description, None, idx))
+                            sensors.append(
+                                HomevoltSensor(coordinator, description, None, idx)
+                            )
                             break
 
     async_add_entities(sensors)

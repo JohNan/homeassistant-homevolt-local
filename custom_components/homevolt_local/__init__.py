@@ -1,11 +1,12 @@
 """The Homevolt Local integration."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import re
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import aiohttp
 import async_timeout
@@ -27,7 +28,6 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import (
-    ATTR_AGGREGATED,
     ATTR_ECU_ID,
     ATTR_EMS,
     ATTR_EUID,
@@ -37,9 +37,11 @@ from .const import (
     CONF_MAIN_HOST,
     CONF_RESOURCE,
     CONF_RESOURCES,
+    CONSOLE_RESOURCE_PATH,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
-    DOMAIN, EMS_RESOURCE_PATH, CONSOLE_RESOURCE_PATH, 
+    DOMAIN,
+    EMS_RESOURCE_PATH,
 )
 from .models import HomevoltData, ScheduleEntry
 
@@ -129,7 +131,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Find the config entry associated with this device
             config_entry_id = next(iter(device_entry.config_entries), None)
             if not config_entry_id:
-                _LOGGER.error("Device %s is not associated with a config entry", device_id)
+                _LOGGER.error(
+                    "Device %s is not associated with a config entry", device_id
+                )
                 continue
 
             config_entry = hass.config_entries.async_get_entry(config_entry_id)
@@ -152,20 +156,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             from_time = call.data["from_time"].strftime("%Y-%m-%dT%H:%M:%S")
             to_time = call.data["to_time"].strftime("%Y-%m-%dT%H:%M:%S")
 
-            command = f"sched_add {mode} --setpoint {setpoint} --from={from_time} --to={to_time}"
+            command = (
+                f"sched_add {mode} --setpoint {setpoint} "
+                f"--from={from_time} --to={to_time}"
+            )
             url = f"{host}{EMS_RESOURCE_PATH}"
 
             try:
                 session = async_get_clientsession(hass, verify_ssl=verify_ssl)
                 form_data = aiohttp.FormData()
-                form_data.add_field('cmd', command)
+                form_data.add_field("cmd", command)
 
-                auth = aiohttp.BasicAuth(username, password) if username and password else None
+                auth = (
+                    aiohttp.BasicAuth(username, password)
+                    if username and password
+                    else None
+                )
 
                 async with session.post(url, data=form_data, auth=auth) as response:
                     response_text = await response.text()
                     if response.status == 200:
-                        _LOGGER.info("Successfully sent command to %s: %s", host, command)
+                        _LOGGER.info(
+                            "Successfully sent command to %s: %s", host, command
+                        )
                     else:
                         _LOGGER.error(
                             "Failed to send command to %s. Status: %s, Response: %s",
@@ -189,22 +202,24 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Dict[str, Any]]]):
+class HomevoltDataUpdateCoordinator(
+    DataUpdateCoordinator[HomevoltData]
+):
     """Class to manage fetching Homevolt data."""
 
     def __init__(
-            self,
-            hass: HomeAssistant,
-            logger: logging.Logger,
-            entry_id: str,
-            resources: List[str],
-            hosts: List[str],
-            main_host: str,
-            username: Optional[str],
-            password: Optional[str],
-            session: aiohttp.ClientSession,
-            update_interval: timedelta,
-            timeout: int,
+        self,
+        hass: HomeAssistant,
+        logger: logging.Logger,
+        entry_id: str,
+        resources: list[str],
+        hosts: list[str],
+        main_host: str,
+        username: str | None,
+        password: str | None,
+        session: aiohttp.ClientSession,
+        update_interval: timedelta,
+        timeout: int,
     ) -> None:
         """Initialize."""
         self.entry_id = entry_id
@@ -221,7 +236,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
         super().__init__(hass, logger, name=DOMAIN, update_interval=update_interval)
 
-    async def _fetch_resource_data(self, resource: str) -> Dict[str, Any]:
+    async def _fetch_resource_data(self, resource: str) -> dict[str, Any]:
         """Fetch data from a single resource."""
         try:
             async with async_timeout.timeout(self.timeout):
@@ -232,14 +247,20 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
                 async with self.session.get(resource, auth=auth) as resp:
                     if resp.status != 200:
-                        raise UpdateFailed(f"Error communicating with API: {resp.status}")
+                        raise UpdateFailed(
+                            f"Error communicating with API: {resp.status}"
+                        )
                     return await resp.json()
         except asyncio.TimeoutError as error:
-            raise UpdateFailed(f"Timeout error fetching data from {resource}: {error}") from error
+            raise UpdateFailed(
+                f"Timeout error fetching data from {resource}: {error}"
+            ) from error
         except (aiohttp.ClientError, ValueError) as error:
-            raise UpdateFailed(f"Error fetching data from {resource}: {error}") from error
+            raise UpdateFailed(
+                f"Error fetching data from {resource}: {error}"
+            ) from error
 
-    async def _fetch_schedule_data(self) -> Dict[str, Any]:
+    async def _fetch_schedule_data(self) -> dict[str, Any]:
         """Fetch schedule data from the main host."""
         url = f"{self.main_host}{CONSOLE_RESOURCE_PATH}"
         command = "sched_list"
@@ -247,12 +268,18 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
         try:
             form_data = aiohttp.FormData()
-            form_data.add_field('cmd', command)
-            auth = aiohttp.BasicAuth(self.username, self.password) if self.username and self.password else None
+            form_data.add_field("cmd", command)
+            auth = (
+                aiohttp.BasicAuth(self.username, self.password)
+                if self.username and self.password
+                else None
+            )
 
             async with self.session.post(url, data=form_data, auth=auth) as response:
                 if response.status != 200:
-                    self.logger.error("Failed to fetch schedule data. Status: %s", response.status)
+                    self.logger.error(
+                        "Failed to fetch schedule data. Status: %s", response.status
+                    )
                     return {}
 
                 response_text = await response.text()
@@ -263,14 +290,16 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
         return schedule_info
 
-    def _parse_schedule_data(self, response_text: str) -> Dict[str, Any]:
+    def _parse_schedule_data(self, response_text: str) -> dict[str, Any]:
         """Parse the schedule data from the text response."""
         schedules = []
         count = 0
         current_id = None
         lines = response_text.splitlines()
 
-        summary_pattern = re.compile(r"Schedule get: (\d+) schedules. Current ID: '([^']*)'")
+        summary_pattern = re.compile(
+            r"Schedule get: (\d+) schedules. Current ID: '([^']*)'"
+        )
 
         for line in lines:
             line = line.strip()
@@ -284,10 +313,10 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
             if not line.startswith("id:"):
                 continue
 
-            parts = [p.strip() for p in line.split(',')]
+            parts = [p.strip() for p in line.split(",")]
             data = {}
             for part in parts:
-                key_value = [kv.strip() for kv in part.split(':', 1)]
+                key_value = [kv.strip() for kv in part.split(":", 1)]
                 if len(key_value) == 2:
                     data[key_value[0]] = key_value[1]
 
@@ -299,8 +328,12 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
                 type=data.get("type"),
                 from_time=data.get("from"),
                 to_time=data.get("to"),
-                setpoint=int(data["setpoint"]) if data.get("setpoint") is not None else None,
-                offline=data.get("offline") == "true" if data.get("offline") is not None else None,
+                setpoint=int(data["setpoint"])
+                if data.get("setpoint") is not None
+                else None,
+                offline=data.get("offline") == "true"
+                if data.get("offline") is not None
+                else None,
                 max_discharge=data.get("max_discharge"),
                 max_charge=data.get("max_charge"),
             )
@@ -332,7 +365,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
         valid_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                self.logger.error("Error fetching data from %s: %s", self.resources[i], result)
+                self.logger.error(
+                    "Error fetching data from %s: %s", self.resources[i], result
+                )
             else:
                 valid_results.append((self.hosts[i], result))
 
@@ -348,7 +383,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
 
         # If main system's data is not available, use the first valid result
         if main_data is None:
-            self.logger.warning("Main system data not available, using first valid result")
+            self.logger.warning(
+                "Main system data not available, using first valid result"
+            )
             main_data = valid_results[0][1]
 
         # Merge data from all systems
@@ -362,7 +399,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[Union[HomevoltData, Di
         # Convert the merged dictionary data to a HomevoltData object
         return HomevoltData.from_dict(merged_dict_data)
 
-    def _merge_data(self, results: List[tuple[str, Dict[str, Any]]], main_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_data(
+        self, results: list[tuple[str, dict[str, Any]]], main_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Merge data from multiple systems."""
         # Start with the main system's data
         merged_data = dict(main_data)
