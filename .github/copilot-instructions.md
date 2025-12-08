@@ -15,7 +15,16 @@ custom_components/homevolt_local/
 ├── sensor.py            # Sensor platform
 ├── strings.json         # User-facing text and translations
 ├── services.yaml        # Service definitions (if applicable)
-└── tests/               # Integration tests
+└── translations/        # Language translations
+
+tests/                   # Integration tests (at repo root)
+├── __init__.py
+├── conftest.py          # Shared pytest fixtures
+├── test_config_flow.py
+├── test_coordinator.py
+├── test_init.py
+├── test_models.py
+└── test_sensor.py
 ```
 
 ## Development Commands
@@ -90,8 +99,8 @@ mypy custom_components/homevolt_local
 
 ## Testing Requirements
 
-- **Location**: `custom_components/homevolt_local/tests/`
-- **Framework**: pytest
+- **Location**: `tests/` (at repo root)
+- **Framework**: pytest with `pytest-homeassistant-custom-component`
 - **Mocking**: Mock all external dependencies
 - **Coverage**: Test config flows, coordinators, and entities
 
@@ -112,7 +121,7 @@ def mock_config_entry() -> MockConfigEntry:
 ## Key Differences from Home Assistant Core
 
 1. **File Location**: Code lives in `custom_components/` not `homeassistant/components/`
-2. **Test Location**: Tests are in `custom_components/homevolt_local/tests/`
+2. **Test Location**: Tests are in `tests/` at repo root (like HACS integration pattern)
 3. **PYTHONPATH**: Must set `PYTHONPATH=.` when running tests
 4. **No hassfest**: Custom integrations don't use the hassfest validation script
 5. **HACS Compatible**: Includes `hacs.json` for HACS integration
