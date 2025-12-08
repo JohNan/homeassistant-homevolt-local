@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -74,15 +75,34 @@ def is_valid_host(host: str) -> bool:
     return bool(host) and " " not in host
 
 
-def validate_protocol(host: str) -> bool:
-    """Validate that the host string includes a protocol."""
-    return host.startswith(("http://", "https://"))
+def normalize_host(host: str) -> str:
+    """Normalize the host by removing trailing slashes."""
+    return host.rstrip("/")
 
 
 def construct_resource_url(host: str) -> str:
     """Construct the resource URL from the host."""
-    # If protocol is already included, just append the path
     return f"{host}{EMS_RESOURCE_PATH}"
+
+
+async def try_connect(
+    session: aiohttp.ClientSession,
+    url: str,
+    auth: aiohttp.BasicAuth | None,
+) -> tuple[bool, int, dict[str, Any] | None]:
+    """Try to connect to a URL and return success status, HTTP status, and data."""
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with session.get(url, auth=auth, timeout=timeout) as response:
+            if response.status == 200:
+                try:
+                    data = await response.json()
+                    return True, response.status, data
+                except ValueError:
+                    return False, response.status, None
+            return False, response.status, None
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return False, 0, None
 
 
 async def validate_host(
@@ -94,57 +114,83 @@ async def validate_host(
     existing_hosts: list[str] | None = None,
 ) -> dict[str, Any]:
     """Validate a host and return its resource URL."""
+    # Normalize the host
+    host = normalize_host(host.strip())
+
     # Validate the host format
     if not is_valid_host(host):
         raise InvalidResource("Invalid IP or hostname format")
 
-    # Validate that a protocol is present
-    if not validate_protocol(host):
-        raise InvalidResource("Protocol (http:// or https://) is required")
+    # Determine if protocol is already specified
+    has_protocol = host.startswith(("http://", "https://"))
 
-    # Check if the host is already in the list
-    if existing_hosts and host in existing_hosts:
-        raise DuplicateHost("This IP address or hostname is already in the list")
+    # Build list of URLs to try
+    if has_protocol:
+        # User specified protocol, use it as-is
+        urls_to_try = [host]
+    else:
+        # No protocol specified, try http first then https
+        urls_to_try = [f"http://{host}", f"https://{host}"]
 
-    # Construct the resource URL
-    resource_url = construct_resource_url(host)
+    # Check if the host (without protocol) is already in the list
+    host_without_protocol = host
+    if has_protocol:
+        host_without_protocol = host.split("://", 1)[1]
 
-    # Validate the connection
-    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
-    ecu_id = None
-    try:
-        auth = aiohttp.BasicAuth(username, password) if username and password else None
-        async with session.get(resource_url, auth=auth) as response:
-            if response.status == 401:
-                raise InvalidAuth("Invalid authentication")
-            elif response.status != 200:
-                raise CannotConnect(f"Invalid response from API: {response.status}")
-
-            try:
-                response_data = await response.json()
-            except ValueError as err:
-                raise CannotConnect("Invalid response format (not JSON)") from err
-
-            # Check if the response has the expected structure
-            if "aggregated" not in response_data:
-                raise CannotConnect(
-                    "Invalid API response format: 'aggregated' key missing"
+    if existing_hosts:
+        for existing in existing_hosts:
+            existing_without_protocol = existing
+            if existing.startswith(("http://", "https://")):
+                existing_without_protocol = existing.split("://", 1)[1]
+            if host_without_protocol == existing_without_protocol:
+                raise DuplicateHost(
+                    "This IP address or hostname is already in the list"
                 )
 
-            # Extract ecu_id from the first EMS device for stable identification
-            ems_list = response_data.get("ems", [])
-            if ems_list and len(ems_list) > 0:
-                ecu_id = ems_list[0].get("ecu_id")
+    # Try to connect
+    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+    auth = aiohttp.BasicAuth(username, password) if username and password else None
 
-    except aiohttp.ClientError as err:
-        raise CannotConnect(f"Connection error: {err}") from err
-    except (InvalidAuth, CannotConnect, InvalidResource, DuplicateHost):
-        raise
-    except Exception as err:
-        raise Exception(f"Error validating API: {err}") from err
+    working_host = None
+    response_data = None
+    last_status = 0
 
-    # Return the host, resource URL, and ecu_id
-    return {"host": host, "resource_url": resource_url, "ecu_id": ecu_id}
+    for url in urls_to_try:
+        resource_url = construct_resource_url(url)
+        success, status, data = await try_connect(session, resource_url, auth)
+        last_status = status
+
+        if status == 401:
+            raise InvalidAuth("Invalid authentication")
+
+        if success and data:
+            # Check if the response has the expected structure
+            if "aggregated" in data:
+                working_host = url
+                response_data = data
+                break
+
+    if not working_host or not response_data:
+        if last_status == 401:
+            raise InvalidAuth("Invalid authentication")
+        raise CannotConnect(
+            f"Cannot connect to {host}. Tried http and https protocols."
+            if not has_protocol
+            else f"Cannot connect to {host}"
+        )
+
+    # Extract ecu_id from the first EMS device for stable identification
+    ecu_id = None
+    ems_list = response_data.get("ems", [])
+    if ems_list and len(ems_list) > 0:
+        ecu_id = ems_list[0].get("ecu_id")
+
+    # Return the host (with working protocol), resource URL, and ecu_id
+    return {
+        "host": working_host,
+        "resource_url": construct_resource_url(working_host),
+        "ecu_id": ecu_id,
+    }
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
