@@ -30,9 +30,9 @@ class ScheduleEntry:
     """Model for a single schedule entry."""
 
     id: int
-    type: str
-    from_time: str
-    to_time: str
+    type: str | None = None
+    from_time: str | None = None
+    to_time: str | None = None
     setpoint: int | None = None
     offline: bool | None = None
     max_discharge: str | None = None

@@ -42,10 +42,12 @@ def get_current_schedule(data: HomevoltData) -> str:
     now = datetime.now()
     for schedule in data.schedules:
         try:
+            if schedule.from_time is None or schedule.to_time is None:
+                continue
             from_time = datetime.fromisoformat(schedule.from_time)
             to_time = datetime.fromisoformat(schedule.to_time)
             if from_time <= now < to_time:
-                return schedule.type
+                return schedule.type if schedule.type else "Unknown"
         except (ValueError, TypeError):
             continue
     return "No active schedule"
@@ -135,7 +137,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="energy_produced",
         name="Homevolt Energy Produced",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:battery-positive",
         value_fn=lambda data: float(data.aggregated.ems_data.energy_produced) / 1000,
@@ -144,7 +146,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="energy_consumed",
         name="Homevolt Energy Consumed",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:battery-negative",
         value_fn=lambda data: float(data.aggregated.ems_data.energy_consumed) / 1000,
@@ -173,7 +175,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="grid_energy_imported",
         name="Energy Imported",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:transmission-tower-import",
         value_fn=lambda data: next(
@@ -187,7 +189,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="grid_energy_exported",
         name="Energy Exported",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:transmission-tower-export",
         value_fn=lambda data: next(
@@ -220,7 +222,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="solar_energy_imported",
         name="Energy Imported",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:solar-power-variant",
         value_fn=lambda data: next(
@@ -234,7 +236,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="solar_energy_exported",
         name="Energy Exported",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:solar-power-variant-outline",
         value_fn=lambda data: next(
@@ -267,7 +269,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="load_energy_imported",
         name="Energy Imported",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:home-import-outline",
         value_fn=lambda data: next(
@@ -281,7 +283,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="load_energy_exported",
         name="Energy Exported",
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
         icon="mdi:home-export-outline",
         value_fn=lambda data: next(
@@ -335,20 +337,37 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                     f"{DOMAIN}_{description.key}_sensor_{sensor_index}"
                 )
         else:
-            # For aggregated sensors, use the host from the resource URL
-            # for a consistent unique ID
-            host = coordinator.resource.split("://")[1].split("/")[0]
-            self._attr_unique_id = f"{DOMAIN}_{description.key}_{host}"
+            # For aggregated sensors, use the first ecu_id for a stable unique ID
+            # that doesn't change when IP changes
+            main_id = self._get_main_device_id()
+            self._attr_unique_id = f"{DOMAIN}_{description.key}_{main_id}"
 
         self._attr_device_info = self.device_info
+
+    def _get_main_device_id(self) -> str:
+        """Get the main device identifier.
+
+        Uses ecu_id from config or data, with fallback to entry_id.
+        """
+        # First try to use ecu_id from coordinator (stored in config entry)
+        if self.coordinator.ecu_id:
+            return str(self.coordinator.ecu_id)
+        # Then try to get it from the data
+        if self.coordinator.data and self.coordinator.data.ems:
+            try:
+                first_ems = self.coordinator.data.ems[0]
+                if first_ems.ecu_id:
+                    return str(first_ems.ecu_id)
+            except (IndexError, AttributeError):
+                pass
+        # Fallback to entry_id which is stable across IP changes
+        return self.coordinator.entry_id
 
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information about this Homevolt device."""
-        # Main aggregated device ID - use the host from the resource URL
-        # to make it consistent across different config entries
-        host = self.coordinator.resource.split("://")[1].split("/")[0]
-        main_device_id = f"homevolt_{host}"
+        # Main aggregated device ID - use ecu_id for consistency across IP changes
+        main_device_id = f"homevolt_{self._get_main_device_id()}"
 
         if (
             self.ems_index is not None
@@ -427,9 +446,10 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 )
         else:
             # For aggregated sensors or if no ems_index or sensor_index is provided
+            main_id = self._get_main_device_id()
             return DeviceInfo(
                 identifiers={(DOMAIN, main_device_id)},
-                name=f"Homevolt Local ({host})",
+                name=f"Homevolt Local ({main_id})",
                 manufacturer="Homevolt",
                 model="Energy Management System",
                 entry_type=DeviceEntryType.SERVICE,
@@ -651,7 +671,7 @@ async def async_setup_entry(
                         key=f"ems_{idx + 1}_energy_discharged",
                         name=f"Homevolt Inverter {idx + 1} Energy Discharged",
                         device_class=SensorDeviceClass.ENERGY,
-                        state_class=SensorStateClass.TOTAL,
+                        state_class=SensorStateClass.TOTAL_INCREASING,
                         native_unit_of_measurement="kWh",
                         icon="mdi:battery-positive",
                         value_fn=lambda data, i=idx: float(
@@ -671,7 +691,7 @@ async def async_setup_entry(
                         key=f"ems_{idx + 1}_energy_charged",
                         name=f"Homevolt Inverter {idx + 1} Energy Charged",
                         device_class=SensorDeviceClass.ENERGY,
-                        state_class=SensorStateClass.TOTAL,
+                        state_class=SensorStateClass.TOTAL_INCREASING,
                         native_unit_of_measurement="kWh",
                         icon="mdi:battery-negative",
                         value_fn=lambda data, i=idx: float(

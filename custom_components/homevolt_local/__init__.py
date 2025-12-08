@@ -84,7 +84,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     password = (entry.data.get(CONF_PASSWORD) or "").strip() or None
     verify_ssl = entry.data.get(CONF_VERIFY_SSL, True)
     scan_interval = entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    timeout = entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+    # Cap timeout at DEFAULT_TIMEOUT (migration for old entries with high timeout)
+    stored_timeout = entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+    timeout = min(stored_timeout, DEFAULT_TIMEOUT)
+    # Get stored ecu_id for stable device identification
+    ecu_id = entry.data.get("ecu_id")
 
     session = async_get_clientsession(hass, verify_ssl=verify_ssl)
 
@@ -95,6 +99,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         resources=resources,
         hosts=hosts,
         main_host=main_host,
+        ecu_id=ecu_id,
         username=username,
         password=password,
         session=session,
@@ -102,7 +107,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         timeout=timeout,
     )
 
-    await coordinator.async_config_entry_first_refresh()
+    # Start a background refresh instead of blocking startup
+    # This allows HA to start even if the device is offline
+    await coordinator.async_refresh()
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -213,6 +220,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         resources: list[str],
         hosts: list[str],
         main_host: str,
+        ecu_id: int | None,
         username: str | None,
         password: str | None,
         session: aiohttp.ClientSession,
@@ -224,6 +232,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         self.resources = resources
         self.hosts = hosts
         self.main_host = main_host
+        self.ecu_id = ecu_id
         self.username = username
         self.password = password
         self.session = session
@@ -260,31 +269,44 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
 
     async def _fetch_schedule_data(self) -> dict[str, Any]:
         """Fetch schedule data from the main host."""
-        url = f"{self.main_host}{CONSOLE_RESOURCE_PATH}"
+        # Ensure URL has protocol
+        if self.main_host.startswith(("http://", "https://")):
+            base_url = self.main_host
+        else:
+            base_url = f"http://{self.main_host}"
+        url = f"{base_url}{CONSOLE_RESOURCE_PATH}"
         command = "sched_list"
-        schedule_info = {}
+        schedule_info: dict[str, Any] = {}
 
         try:
-            form_data = aiohttp.FormData()
-            form_data.add_field("cmd", command)
-            auth = (
-                aiohttp.BasicAuth(self.username, self.password)
-                if self.username and self.password
-                else None
-            )
+            async with async_timeout.timeout(self.timeout):
+                form_data = aiohttp.FormData()
+                form_data.add_field("cmd", command)
+                auth = (
+                    aiohttp.BasicAuth(self.username, self.password)
+                    if self.username and self.password
+                    else None
+                )
 
-            async with self.session.post(url, data=form_data, auth=auth) as response:
-                if response.status != 200:
-                    self.logger.error(
-                        "Failed to fetch schedule data. Status: %s", response.status
-                    )
-                    return {}
+                async with self.session.post(
+                    url, data=form_data, auth=auth
+                ) as response:
+                    if response.status != 200:
+                        self.logger.error(
+                            "Failed to fetch schedule data. Status: %s",
+                            response.status,
+                        )
+                        return {}
 
-                response_text = await response.text()
-                schedule_info = self._parse_schedule_data(response_text)
+                    response_text = await response.text()
+                    schedule_info = self._parse_schedule_data(response_text)
 
+        except asyncio.TimeoutError:
+            self.logger.error("Timeout fetching schedule data from %s", url)
         except aiohttp.ClientError as e:
             self.logger.error("Error fetching schedule data: %s", e)
+        except (ValueError, KeyError) as e:
+            self.logger.error("Error parsing schedule data: %s", e)
 
         return schedule_info
 
@@ -321,14 +343,28 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             if "id" not in data:
                 continue
 
+            # Parse id - skip if not a valid integer
+            try:
+                schedule_id = int(data["id"])
+            except ValueError:
+                self.logger.warning("Skipping schedule with invalid id: %s", data["id"])
+                continue
+
+            # Parse setpoint - may be a number or a string like "<max allowed>"
+            setpoint: int | None = None
+            if data.get("setpoint") is not None:
+                try:
+                    setpoint = int(data["setpoint"])
+                except ValueError:
+                    # setpoint might be a string like "<max allowed>"
+                    pass
+
             schedule = ScheduleEntry(
-                id=int(data["id"]),
+                id=schedule_id,
                 type=data.get("type"),
                 from_time=data.get("from"),
                 to_time=data.get("to"),
-                setpoint=int(data["setpoint"])
-                if data.get("setpoint") is not None
-                else None,
+                setpoint=setpoint,
                 offline=data.get("offline") == "true"
                 if data.get("offline") is not None
                 else None,
@@ -354,19 +390,28 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Separate schedule data from sensor data results
-        schedule_info = results.pop()
-        if isinstance(schedule_info, Exception):
-            self.logger.error("Error fetching schedule data: %s", schedule_info)
-            schedule_info = {"entries": [], "count": 0, "current_id": None}
+        schedule_result = results.pop()
+        schedule_data: dict[str, Any]
+        if isinstance(schedule_result, Exception):
+            self.logger.error("Error fetching schedule data: %s", schedule_result)
+            schedule_data = {
+                "entries": [],
+                "count": 0,
+                "current_id": None,
+            }
+        elif isinstance(schedule_result, dict):
+            schedule_data = schedule_result
+        else:
+            schedule_data = {"entries": [], "count": 0, "current_id": None}
 
         # Process the sensor data results
-        valid_results = []
+        valid_results: list[tuple[str, dict[str, Any]]] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 self.logger.error(
                     "Error fetching data from %s: %s", self.resources[i], result
                 )
-            else:
+            elif isinstance(result, dict):
                 valid_results.append((self.hosts[i], result))
 
         if not valid_results:
@@ -390,9 +435,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         merged_dict_data = self._merge_data(valid_results, main_data)
 
         # Add schedule data to the merged data
-        merged_dict_data["schedules"] = schedule_info.get("entries", [])
-        merged_dict_data["schedule_count"] = schedule_info.get("count")
-        merged_dict_data["schedule_current_id"] = schedule_info.get("current_id")
+        merged_dict_data["schedules"] = schedule_data.get("entries", [])
+        merged_dict_data["schedule_count"] = schedule_data.get("count")
+        merged_dict_data["schedule_current_id"] = schedule_data.get("current_id")
 
         # Convert the merged dictionary data to a HomevoltData object
         return HomevoltData.from_dict(merged_dict_data)
