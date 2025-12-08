@@ -202,9 +202,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-class HomevoltDataUpdateCoordinator(
-    DataUpdateCoordinator[HomevoltData]
-):
+class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
     """Class to manage fetching Homevolt data."""
 
     def __init__(
