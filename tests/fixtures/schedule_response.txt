@@ -1,0 +1,5 @@
+esp32> sched_list
+Schedule get: 2 schedules. Current ID: 'test-schedule-2025'
+id: 0, type: Idle schedule, from: 2025-01-01T00:00:00, to: 2025-01-01T12:00:00, offline: false
+id: 1, type: Grid charge setpoint, from: 2025-01-01T12:00:00, to: 2025-01-02T00:00:00, setpoint:0, max_charge: <max allowed>
+Command 'sched_list' executed successfully
