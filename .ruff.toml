@@ -21,8 +21,9 @@ ignore = [
     "D104",   # Missing docstring in public package
     "D203",   # 1 blank line required before class docstring
     "D213",   # Multi-line docstring summary should start at the second line
+    "N818",   # Exception name should be named with an Error suffix (HA style uses different names)
 ]
 
 [lint.per-file-ignores]
-"tests/*" = ["S101", "D"]
-"custom_components/homevolt_local/tests/*" = ["S101", "D"]
+"tests/*" = ["S101", "D", "E501"]
+"custom_components/homevolt_local/tests/*" = ["S101", "D", "E501"]
