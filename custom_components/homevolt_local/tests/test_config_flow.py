@@ -1,15 +1,16 @@
 import unittest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from custom_components.homevolt_local.config_flow import (
-    is_valid_host,
-    construct_resource_url,
-    validate_host,
-    InvalidAuth,
     CannotConnect,
-    InvalidResource,
     DuplicateHost,
+    InvalidAuth,
+    InvalidResource,
+    construct_resource_url,
+    is_valid_host,
+    validate_host,
 )
+
 
 class TestConfigFlow(unittest.TestCase):
     def test_is_valid_host(self):
@@ -22,15 +23,14 @@ class TestConfigFlow(unittest.TestCase):
     def test_construct_resource_url(self):
         """Test the construct_resource_url function."""
         self.assertEqual(
-            construct_resource_url("http://192.168.1.1"),
-            "http://192.168.1.1/ems.json"
+            construct_resource_url("http://192.168.1.1"), "http://192.168.1.1/ems.json"
         )
         self.assertEqual(
             construct_resource_url("https://192.168.1.1"),
-            "https://192.168.1.1/ems.json"
+            "https://192.168.1.1/ems.json",
         )
 
-    @patch('custom_components.homevolt_local.config_flow.async_get_clientsession')
+    @patch("custom_components.homevolt_local.config_flow.async_get_clientsession")
     def test_validate_host(self, mock_get_session):
         """Test the validate_host function."""
         hass = MagicMock()
@@ -75,10 +75,14 @@ class TestConfigFlow(unittest.TestCase):
 
             # Test DuplicateHost
             with self.assertRaises(DuplicateHost):
-                await validate_host(hass, "http://192.168.1.1", existing_hosts=["http://192.168.1.1"])
+                await validate_host(
+                    hass, "http://192.168.1.1", existing_hosts=["http://192.168.1.1"]
+                )
 
         import asyncio
+
         asyncio.run(run_test())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
