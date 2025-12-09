@@ -14,7 +14,7 @@ fi
 # This lets us have the structure we want <root>/custom_components/homevolt_local
 # while at the same time have Home Assistant configuration inside <root>/config
 # without resorting to symlinks.
-export PYTHONPATH="${PYTHONPATH}:${PWD}/custom_components"
+export PYTHONPATH="${PWD}/custom_components${PYTHONPATH:+:$PYTHONPATH}"
 
 # Start Home Assistant
 hass --config "${PWD}/config" --debug
