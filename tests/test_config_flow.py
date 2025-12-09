@@ -5,23 +5,12 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.homevolt_local.const import CONF_HOST, DOMAIN
-
-
-@pytest.fixture
-def mock_setup_entry():
-    """Override async_setup_entry."""
-    with patch(
-        "custom_components.homevolt_local.async_setup_entry",
-        return_value=True,
-    ) as mock_setup:
-        yield mock_setup
 
 
 async def test_config_flow_user_step(
