@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -102,7 +101,6 @@ async def test_schedule_sensor_exists(
     assert state is not None
 
 
-@pytest.mark.usefixtures("mock_api_client")
 async def test_sensor_states_snapshot(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
