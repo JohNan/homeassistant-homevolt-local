@@ -1,18 +1,16 @@
 import unittest
-from unittest.mock import MagicMock, patch, AsyncMock
-import pytest
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.device_registry import DeviceEntry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homevolt_local import (
     HomevoltDataUpdateCoordinator,
     async_setup_entry,
 )
-from custom_components.homevolt_local.const import DOMAIN, CONF_MAIN_HOST
+from custom_components.homevolt_local.const import CONF_MAIN_HOST, DOMAIN
 from custom_components.homevolt_local.models import ScheduleEntry
 
 
@@ -70,7 +68,9 @@ Command 'sched_list' executed successfully
 
         self.assertEqual(len(schedules), 27)
         self.assertEqual(schedule_info["count"], 27)
-        self.assertEqual(schedule_info["current_id"], "linear-optimization2-2025-08-23 21:09")
+        self.assertEqual(
+            schedule_info["current_id"], "linear-optimization2-2025-08-23 21:09"
+        )
 
         self.assertEqual(
             schedules[0],
@@ -140,18 +140,24 @@ def mock_hass():
 @pytest.mark.asyncio
 async def test_add_schedule_service_single_device(mock_hass):
     """Test the add_schedule service with a single device."""
-    with patch(
-        "custom_components.homevolt_local.async_get_device_registry"
-    ) as mock_get_dr, patch(
-        "custom_components.homevolt_local.async_get_clientsession"
-    ) as mock_session:
+    with (
+        patch(
+            "custom_components.homevolt_local.async_get_device_registry"
+        ) as mock_get_dr,
+        patch(
+            "custom_components.homevolt_local.async_get_clientsession"
+        ) as mock_session,
+    ):
         # Arrange
         mock_dr = MagicMock()
         mock_get_dr.return_value = mock_dr
 
         config_entry = MockConfigEntry(
             domain=DOMAIN,
-            data={CONF_MAIN_HOST: "http://localhost", "resource": "http://localhost/api"},
+            data={
+                CONF_MAIN_HOST: "http://localhost",
+                "resource": "http://localhost/api",
+            },
             entry_id="test_entry",
         )
         mock_hass.config_entries.async_get_entry.return_value = config_entry
@@ -196,18 +202,24 @@ async def test_add_schedule_service_single_device(mock_hass):
 @pytest.mark.asyncio
 async def test_add_schedule_service_multiple_devices(mock_hass):
     """Test the add_schedule service with multiple devices."""
-    with patch(
-        "custom_components.homevolt_local.async_get_device_registry"
-    ) as mock_get_dr, patch(
-        "custom_components.homevolt_local.async_get_clientsession"
-    ) as mock_session:
+    with (
+        patch(
+            "custom_components.homevolt_local.async_get_device_registry"
+        ) as mock_get_dr,
+        patch(
+            "custom_components.homevolt_local.async_get_clientsession"
+        ) as mock_session,
+    ):
         # Arrange
         mock_dr = MagicMock()
         mock_get_dr.return_value = mock_dr
 
         config_entry = MockConfigEntry(
             domain=DOMAIN,
-            data={CONF_MAIN_HOST: "http://localhost", "resource": "http://localhost/api"},
+            data={
+                CONF_MAIN_HOST: "http://localhost",
+                "resource": "http://localhost/api",
+            },
             entry_id="test_entry",
         )
         mock_hass.config_entries.async_get_entry.return_value = config_entry

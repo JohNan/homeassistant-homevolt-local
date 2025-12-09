@@ -1,5 +1,12 @@
 import unittest
-from custom_components.homevolt_local.models import HomevoltData, EmsDevice, SensorData, EmsInfo, BmsInfo, InvInfo, EmsConfig, InvConfig, EmsControl, EmsData, BmsData, EmsPrediction, EmsVoltage, EmsCurrent, EmsAggregate, PhaseData, ScheduleEntry
+
+from custom_components.homevolt_local.models import (
+    EmsDevice,
+    HomevoltData,
+    ScheduleEntry,
+    SensorData,
+)
+
 
 class TestModels(unittest.TestCase):
     def test_homevolt_data_from_dict(self):
@@ -31,10 +38,13 @@ class TestModels(unittest.TestCase):
                 }
             ],
             "schedule_count": 1,
-            "schedule_current_id": "test_id"
+            "schedule_current_id": "test_id",
         }
         homevolt_data = HomevoltData.from_dict(data)
-        self.assertEqual(homevolt_data.type, "homevolt.api.public.V1.SystemStatus, homevolt.api.public")
+        self.assertEqual(
+            homevolt_data.type,
+            "homevolt.api.public.V1.SystemStatus, homevolt.api.public",
+        )
         self.assertEqual(homevolt_data.ts, 1672531200)
         self.assertEqual(len(homevolt_data.ems), 1)
         self.assertEqual(homevolt_data.ems[0].ecu_id, 123)
@@ -42,7 +52,7 @@ class TestModels(unittest.TestCase):
         self.assertEqual(len(homevolt_data.sensors), 1)
         self.assertEqual(homevolt_data.sensors[0].type, "grid")
         self.assertEqual(len(homevolt_data.schedules), 1)
-        self.assertEqual(homevolt_data.schedules[0]['type'], "charge")
+        self.assertEqual(homevolt_data.schedules[0]["type"], "charge")
         self.assertEqual(homevolt_data.schedule_count, 1)
         self.assertEqual(homevolt_data.schedule_current_id, "test_id")
 
@@ -58,10 +68,8 @@ class TestModels(unittest.TestCase):
             "type": "solar",
             "node_id": 2,
             "euid": "sensor2",
-            "phase": [
-                {"voltage": 230.0, "amp": 5.0, "power": 1150.0, "pf": 1.0}
-            ],
-            "total_power": 1150
+            "phase": [{"voltage": 230.0, "amp": 5.0, "power": 1150.0, "pf": 1.0}],
+            "total_power": 1150,
         }
         sensor_data = SensorData.from_dict(data)
         self.assertEqual(sensor_data.type, "solar")
@@ -80,7 +88,7 @@ class TestModels(unittest.TestCase):
             to_time="2023-01-01T01:00:00",
             setpoint=1000,
             offline=False,
-            max_charge="<max allowed>"
+            max_charge="<max allowed>",
         )
         self.assertEqual(schedule.id, 1)
         self.assertEqual(schedule.type, "charge")
@@ -90,5 +98,6 @@ class TestModels(unittest.TestCase):
         self.assertFalse(schedule.offline)
         self.assertEqual(schedule.max_charge, "<max allowed>")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

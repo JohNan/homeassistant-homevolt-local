@@ -1,13 +1,15 @@
 """Config flow for Homevolt Local integration."""
+
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
 import aiohttp
 import voluptuous as vol
-
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import (
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
@@ -15,8 +17,7 @@ from homeassistant.const import (
     CONF_USERNAME,
     CONF_VERIFY_SSL,
 )
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
@@ -25,10 +26,10 @@ from .const import (
     CONF_HOSTS,
     CONF_MAIN_HOST,
     CONF_RESOURCES,
-    EMS_RESOURCE_PATH,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
+    EMS_RESOURCE_PATH,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,71 +75,122 @@ def is_valid_host(host: str) -> bool:
     return bool(host) and " " not in host
 
 
-def validate_protocol(host: str) -> bool:
-    """Validate that the host string includes a protocol."""
-    return host.startswith(("http://", "https://"))
+def normalize_host(host: str) -> str:
+    """Normalize the host by removing trailing slashes."""
+    return host.rstrip("/")
 
 
 def construct_resource_url(host: str) -> str:
     """Construct the resource URL from the host."""
-    # If protocol is already included, just append the path
     return f"{host}{EMS_RESOURCE_PATH}"
+
+
+async def try_connect(
+    session: aiohttp.ClientSession,
+    url: str,
+    auth: aiohttp.BasicAuth | None,
+) -> tuple[bool, int, dict[str, Any] | None]:
+    """Try to connect to a URL and return success status, HTTP status, and data."""
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with session.get(url, auth=auth, timeout=timeout) as response:
+            if response.status == 200:
+                try:
+                    data = await response.json()
+                    return True, response.status, data
+                except ValueError:
+                    return False, response.status, None
+            return False, response.status, None
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return False, 0, None
 
 
 async def validate_host(
     hass: HomeAssistant,
     host: str,
-    username: str = None,
-    password: str = None,
+    username: str | None = None,
+    password: str | None = None,
     verify_ssl: bool = True,
-    existing_hosts: list[str] = None,
+    existing_hosts: list[str] | None = None,
 ) -> dict[str, Any]:
     """Validate a host and return its resource URL."""
+    # Normalize the host
+    host = normalize_host(host.strip())
+
     # Validate the host format
     if not is_valid_host(host):
         raise InvalidResource("Invalid IP or hostname format")
 
-    # Validate that a protocol is present
-    if not validate_protocol(host):
-        raise InvalidResource("Protocol (http:// or https://) is required")
+    # Determine if protocol is already specified
+    has_protocol = host.startswith(("http://", "https://"))
 
-    # Check if the host is already in the list
-    if existing_hosts and host in existing_hosts:
-        raise DuplicateHost("This IP address or hostname is already in the list")
+    # Build list of URLs to try
+    if has_protocol:
+        # User specified protocol, use it as-is
+        urls_to_try = [host]
+    else:
+        # No protocol specified, try http first then https
+        urls_to_try = [f"http://{host}", f"https://{host}"]
 
-    # Construct the resource URL
-    resource_url = construct_resource_url(host)
+    # Check if the host (without protocol) is already in the list
+    host_without_protocol = host
+    if has_protocol:
+        host_without_protocol = host.split("://", 1)[1]
 
-    # Validate the connection
-    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
-    try:
-        auth = aiohttp.BasicAuth(username, password) if username and password else None
-        async with session.get(resource_url, auth=auth) as response:
-            if response.status == 401:
-                raise InvalidAuth("Invalid authentication")
-            elif response.status != 200:
-                raise CannotConnect(f"Invalid response from API: {response.status}")
-
-            try:
-                response_data = await response.json()
-            except ValueError:
-                raise CannotConnect("Invalid response format (not JSON)")
-
-            # Check if the response has the expected structure
-            if "aggregated" not in response_data:
-                raise CannotConnect(
-                    "Invalid API response format: 'aggregated' key missing"
+    if existing_hosts:
+        for existing in existing_hosts:
+            existing_without_protocol = existing
+            if existing.startswith(("http://", "https://")):
+                existing_without_protocol = existing.split("://", 1)[1]
+            if host_without_protocol == existing_without_protocol:
+                raise DuplicateHost(
+                    "This IP address or hostname is already in the list"
                 )
 
-    except aiohttp.ClientError as err:
-        raise CannotConnect(f"Connection error: {err}")
-    except (InvalidAuth, CannotConnect, InvalidResource, DuplicateHost) as err:
-        raise
-    except Exception as err:
-        raise Exception(f"Error validating API: {err}") from err
+    # Try to connect
+    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+    auth = aiohttp.BasicAuth(username, password) if username and password else None
 
-    # Return the host and resource URL
-    return {"host": host, "resource_url": resource_url}
+    working_host = None
+    response_data = None
+    last_status = 0
+
+    for url in urls_to_try:
+        resource_url = construct_resource_url(url)
+        success, status, data = await try_connect(session, resource_url, auth)
+        last_status = status
+
+        if status == 401:
+            raise InvalidAuth("Invalid authentication")
+
+        if success and data:
+            # Check if the response has the expected structure
+            if "aggregated" in data:
+                working_host = url
+                response_data = data
+                break
+
+    if not working_host or not response_data:
+        if last_status == 401:
+            raise InvalidAuth("Invalid authentication")
+        raise CannotConnect(
+            f"Cannot connect to {host}. Tried http and https protocols."
+            if not has_protocol
+            else f"Cannot connect to {host}"
+        )
+
+    # Extract ecu_id from the first EMS device for stable identification
+    ecu_id = None
+    ems_list = response_data.get("ems", [])
+    if ems_list and len(ems_list) > 0:
+        ecu_id = ems_list[0].get("ecu_id")
+
+    # Return the host (with working protocol), resource URL, and ecu_id
+    return {
+        "host": working_host,
+        "resource_url": construct_resource_url(working_host),
+        "ecu_id": ecu_id,
+    }
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -151,20 +203,20 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     # Validate the host
     host_info = await validate_host(
-        hass,
-        host,
-        username,
-        password,
-        verify_ssl,
-        existing_hosts
+        hass, host, username, password, verify_ssl, existing_hosts
     )
 
     # Return info that you want to store in the config entry.
     return {
         "title": "Homevolt Local",
         "host": host_info["host"],
-        "resource_url": host_info["resource_url"]
+        "resource_url": host_info["resource_url"],
+        "ecu_id": host_info.get("ecu_id"),
     }
+
+
+# Constant for ecu_id in config entry
+CONF_ECU_ID = "ecu_id"
 
 
 class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -174,18 +226,28 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self.hosts = []
-        self.resources = []
-        self.main_host = None
-        self.username = None
-        self.password = None
-        self.verify_ssl = True
-        self.scan_interval = DEFAULT_SCAN_INTERVAL
-        self.timeout = DEFAULT_TIMEOUT
+        self.hosts: list[str] = []
+        self.resources: list[str] = []
+        self.ecu_ids: list[int | None] = []
+        self.main_host: str | None = None
+        self.main_ecu_id: int | None = None
+        self.username: str | None = None
+        self.password: str | None = None
+        self.verify_ssl: bool = True
+        self.scan_interval: int = DEFAULT_SCAN_INTERVAL
+        self.timeout: int = DEFAULT_TIMEOUT
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return HomevoltOptionsFlowHandler()
 
     async def async_step_user(
-            self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -194,7 +256,9 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.username = user_input.get(CONF_USERNAME, "").strip() or None
                 self.password = user_input.get(CONF_PASSWORD, "").strip() or None
                 self.verify_ssl = user_input.get(CONF_VERIFY_SSL, True)
-                self.scan_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+                self.scan_interval = user_input.get(
+                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                )
                 self.timeout = user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
 
                 # Validate the first host
@@ -206,12 +270,14 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.verify_ssl,
                 )
 
-                # Store the host and resource URL
+                # Store the host, resource URL, and ecu_id
                 self.hosts.append(host_info["host"])
                 self.resources.append(host_info["resource_url"])
+                self.ecu_ids.append(host_info.get("ecu_id"))
 
-                # Set the main host to the first host by default
+                # Set the main host and ecu_id to the first host by default
                 self.main_host = host_info["host"]
+                self.main_ecu_id = host_info.get("ecu_id")
 
                 # Proceed to the add_host step
                 return await self.async_step_add_host()
@@ -232,13 +298,13 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_add_host(
-            self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the add_host step."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                if CONF_HOST in user_input and user_input[CONF_HOST]:
+                if user_input.get(CONF_HOST):
                     # Validate the additional host
                     host_info = await validate_host(
                         self.hass,
@@ -249,11 +315,13 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self.hosts,
                     )
 
-                    # Store the host and resource URL
+                    # Store the host, resource URL, and ecu_id
                     self.hosts.append(host_info["host"])
                     self.resources.append(host_info["resource_url"])
+                    self.ecu_ids.append(host_info.get("ecu_id"))
 
-                    # If the user wants to add another host, go back to the add_host step
+                    # If the user wants to add another host,
+                    # go back to the add_host step
                     if user_input.get(CONF_ADD_ANOTHER, False):
                         return await self.async_step_add_host()
 
@@ -281,14 +349,20 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_select_main(
-            self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the select_main step."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                # Store the main host
-                self.main_host = user_input[CONF_MAIN_HOST]
+                # Store the main host and find its corresponding ecu_id
+                main_host: str = user_input[CONF_MAIN_HOST]
+                self.main_host = main_host
+                try:
+                    main_index = self.hosts.index(main_host)
+                    self.main_ecu_id = self.ecu_ids[main_index]
+                except (ValueError, IndexError):
+                    self.main_ecu_id = None
 
                 # Proceed to the confirm step
                 return await self.async_step_confirm()
@@ -309,24 +383,23 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_confirm(
-            self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the confirm step."""
         if user_input is not None:
-            # Check if any of the hosts are already configured
-            for host in self.hosts:
-                await self.async_set_unique_id(host)
-                if self._async_current_entries():
-                    return self.async_abort(reason="already_configured")
+            # Use ecu_id as unique identifier if available, otherwise fall back to host
+            unique_id = str(self.main_ecu_id) if self.main_ecu_id else self.main_host
 
-            # Set the unique_id to the main host
-            await self.async_set_unique_id(self.main_host)
+            # Check if already configured
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
 
             # Create the config entry
             entry_data = {
                 CONF_HOSTS: self.hosts,
                 CONF_MAIN_HOST: self.main_host,
                 CONF_RESOURCES: self.resources,
+                CONF_ECU_ID: self.main_ecu_id,
                 CONF_USERNAME: self.username,
                 CONF_PASSWORD: self.password,
                 CONF_VERIFY_SSL: self.verify_ssl,
@@ -345,4 +418,117 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="confirm",
             description_placeholders={"hosts": hosts_str},
+        )
+
+
+class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for Homevolt Local."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                # Get current values
+                current_hosts = self.config_entry.data.get(CONF_HOSTS, [])
+                current_main_host = self.config_entry.data.get(CONF_MAIN_HOST)
+                current_ecu_id = self.config_entry.data.get(CONF_ECU_ID)
+                username = user_input.get(CONF_USERNAME, "").strip() or None
+                password = user_input.get(CONF_PASSWORD, "").strip() or None
+                verify_ssl = user_input.get(CONF_VERIFY_SSL, False)
+
+                # Get the new host
+                new_host = user_input.get(CONF_HOST, "").strip()
+                new_ecu_id = current_ecu_id
+
+                if new_host:
+                    # Validate the new host
+                    host_info = await validate_host(
+                        self.hass,
+                        new_host,
+                        username,
+                        password,
+                        verify_ssl,
+                    )
+
+                    # Update hosts and resources
+                    new_hosts = [host_info["host"]]
+                    new_resources = [host_info["resource_url"]]
+                    new_main_host = host_info["host"]
+                    # Keep the existing ecu_id - it should be the same device
+                    # Only update if we got a new one and didn't have one before
+                    if host_info.get("ecu_id") and not current_ecu_id:
+                        new_ecu_id = host_info.get("ecu_id")
+                else:
+                    # Keep existing hosts
+                    new_hosts = current_hosts
+                    new_resources = self.config_entry.data.get(CONF_RESOURCES, [])
+                    new_main_host = current_main_host
+
+                # Build updated data
+                new_data = {
+                    CONF_HOSTS: new_hosts,
+                    CONF_MAIN_HOST: new_main_host,
+                    CONF_RESOURCES: new_resources,
+                    CONF_ECU_ID: new_ecu_id,
+                    CONF_USERNAME: username,
+                    CONF_PASSWORD: password,
+                    CONF_VERIFY_SSL: verify_ssl,
+                    CONF_SCAN_INTERVAL: user_input.get(
+                        CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                    ),
+                    CONF_TIMEOUT: user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+                }
+
+                # Update config entry data
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=new_data,
+                    title=f"Homevolt Local ({len(new_hosts)} systems)",
+                )
+
+                # Reload the integration
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+
+                return self.async_create_entry(title="", data={})
+
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except InvalidResource:
+                errors["base"] = "invalid_resource"
+            except Exception as err:
+                _LOGGER.exception("Unexpected exception: %s", err)
+                errors["base"] = "unknown"
+
+        # Get current values for defaults
+        current_hosts = self.config_entry.data.get(CONF_HOSTS, [])
+        current_host = current_hosts[0] if current_hosts else ""
+        current_username = self.config_entry.data.get(CONF_USERNAME) or ""
+        current_password = self.config_entry.data.get(CONF_PASSWORD) or ""
+        current_verify_ssl = self.config_entry.data.get(CONF_VERIFY_SSL, False)
+        current_scan_interval = self.config_entry.data.get(
+            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+        )
+        current_timeout = self.config_entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+
+        options_schema = vol.Schema(
+            {
+                vol.Optional(CONF_HOST, default=current_host): str,
+                vol.Optional(CONF_USERNAME, default=current_username): str,
+                vol.Optional(CONF_PASSWORD, default=current_password): str,
+                vol.Optional(CONF_VERIFY_SSL, default=current_verify_ssl): bool,
+                vol.Optional(CONF_SCAN_INTERVAL, default=current_scan_interval): int,
+                vol.Optional(CONF_TIMEOUT, default=current_timeout): int,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=options_schema,
+            errors=errors,
         )

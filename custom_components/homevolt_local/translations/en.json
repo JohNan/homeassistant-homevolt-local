@@ -43,5 +43,27 @@
     "abort": {
       "already_configured": "A Homevolt Local integration with one of these systems is already configured"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Homevolt Local Options",
+        "description": "Configure your Homevolt Local integration. Change the IP/Hostname to update the connection address.",
+        "data": {
+          "host": "IP or Hostname (e.g., 192.168.1.100)",
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "verify_ssl": "Verify SSL certificate",
+          "scan_interval": "Scan interval (seconds)",
+          "timeout": "Timeout (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the address",
+      "invalid_auth": "Invalid authentication",
+      "invalid_resource": "Invalid IP or hostname format",
+      "unknown": "Unexpected error"
+    }
   }
 }

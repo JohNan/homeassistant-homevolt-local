@@ -1,0 +1,7 @@
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+explicit_package_bases = true
+# Disable the misc error category for lambda type inference issues
+disable_error_code = ["misc"]
+exclude = [".venv", "config"]
