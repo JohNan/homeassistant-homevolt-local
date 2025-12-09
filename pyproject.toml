@@ -5,3 +5,8 @@ explicit_package_bases = true
 # Disable the misc error category for lambda type inference issues
 disable_error_code = ["misc"]
 exclude = [".venv", "config"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
