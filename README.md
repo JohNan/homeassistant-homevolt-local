@@ -238,9 +238,64 @@ views:
 
 ### Development Container
 
-This project includes a development container configuration that provides a consistent development environment with all the necessary tools and dependencies pre-installed. The development container supports both VS Code and PyCharm.
+The easiest way to get started with development is to use a development container. This provides a consistent development environment with all the necessary tools and dependencies pre-installed.
 
-For more information on how to use the development container, see the [.devcontainer/README.md](.devcontainer/README.md) file.
+#### Prerequisites
+
+- [Docker](https://www.docker.com/)
+- One of the following IDEs:
+  - [Visual Studio Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+  - [PyCharm Professional](https://www.jetbrains.com/pycharm/) (has built-in Dev Container support)
+
+#### Getting Started with VS Code
+
+1. Clone the repository
+2. Open the repository in Visual Studio Code
+3. When prompted, click "Reopen in Container" (or use the command palette: `Dev Containers: Reopen in Container`)
+4. Wait for the container to build and the dependencies to install
+5. Run `scripts/develop` to start Home Assistant with the integration loaded
+
+#### Getting Started with PyCharm
+
+1. Clone the repository
+2. Open PyCharm and select `File` > `Remote Development` > `Dev Containers`
+3. Click `New Dev Container` and select the cloned repository
+4. PyCharm will detect the `.devcontainer.json` and build the container
+5. Once connected, run `scripts/develop` to start Home Assistant with the integration loaded
+
+For more details, see [PyCharm Dev Container documentation](https://www.jetbrains.com/help/pycharm/connect-to-devcontainer.html).
+
+#### What the Dev Container Provides
+
+The development container will:
+- Set up a Python 3.13 environment
+- Install all required dependencies via `scripts/setup`
+- Forward port 8123 for Home Assistant access
+- Configure the IDE with recommended extensions and settings
+
+#### Development Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/setup` | Install all dependencies (runs automatically in devcontainer) |
+| `scripts/develop` | Start Home Assistant with the integration loaded |
+| `scripts/lint` | Run ruff formatter and linter |
+
+#### Running Tests
+
+```bash
+PYTHONPATH=. pytest
+```
+
+#### Running Tests with Coverage
+
+```bash
+PYTHONPATH=. pytest --cov=custom_components/homevolt_local --cov-report=term-missing
+```
+
+#### Access Home Assistant
+
+Once `scripts/develop` is running, access Home Assistant at: http://localhost:8123
 
 ## Contributing
 
