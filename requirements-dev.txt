@@ -2,3 +2,7 @@
 pytest
 pytest-homeassistant-custom-component==0.13.299
 ruff
+pre-commit
+codespell
+yamllint
+mypy
