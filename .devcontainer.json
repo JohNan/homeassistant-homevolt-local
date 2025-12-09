@@ -1,7 +1,7 @@
 {
     "name": "Homevolt Local Development",
     "image": "mcr.microsoft.com/devcontainers/python:3.13",
-    "postCreateCommand": "scripts/setup",
+    "postCreateCommand": "bash scripts/setup",
     "forwardPorts": [
         8123
     ],
