@@ -4,5 +4,16 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-python3 -m pip install --requirement requirements.txt
-python3 -m pip install --requirement requirements-dev.txt
+# Use uv for faster package installation (falls back to pip if uv not available)
+if command -v uv &> /dev/null; then
+    uv pip install --requirement requirements.txt
+    uv pip install --requirement requirements-dev.txt
+else
+    python3 -m pip install --requirement requirements.txt
+    python3 -m pip install --requirement requirements-dev.txt
+fi
+
+# Install pre-commit hooks
+if command -v pre-commit &> /dev/null; then
+    pre-commit install
+fi

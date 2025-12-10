@@ -32,7 +32,14 @@ tests/                   # Integration tests (at repo root)
 ### Install Dependencies
 
 ```bash
+# Using uv (faster)
+uv pip install -r requirements-dev.txt
+
+# Or using pip
 pip install -r requirements-dev.txt
+
+# Or use the setup script
+scripts/setup
 ```
 
 ### Run Tests
