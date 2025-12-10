@@ -19,7 +19,6 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import HomevoltDataUpdateCoordinator
 from .const import (
     ATTR_AGGREGATED,
     ATTR_EMS,
@@ -32,6 +31,7 @@ from .const import (
     SENSOR_TYPE_LOAD,
     SENSOR_TYPE_SOLAR,
 )
+from .coordinator import HomevoltDataUpdateCoordinator
 from .models import HomevoltData
 
 _LOGGER = logging.getLogger(__name__)

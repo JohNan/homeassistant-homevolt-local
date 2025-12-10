@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from custom_components.homevolt_local import ATTR_EUID
-from custom_components.homevolt_local.const import (
+from .const import (
     ATTR_AGGREGATED,
     ATTR_AVAILABLE,
     ATTR_BMS_INFO,
@@ -15,6 +14,7 @@ from custom_components.homevolt_local.const import (
     ATTR_EMS_INFO,
     ATTR_ENERGY_EXPORTED,
     ATTR_ENERGY_IMPORTED,
+    ATTR_EUID,
     ATTR_INV_INFO,
     ATTR_NODE_ID,
     ATTR_PHASE,

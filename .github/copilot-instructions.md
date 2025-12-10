@@ -10,7 +10,7 @@ custom_components/homevolt_local/
 ├── manifest.json        # Integration metadata and dependencies
 ├── const.py             # Domain and constants
 ├── config_flow.py       # UI configuration flow
-├── coordinator.py       # Data update coordinator (if present)
+├── coordinator.py       # Data update coordinator
 ├── models.py            # Data models
 ├── sensor.py            # Sensor platform
 ├── strings.json         # User-facing text and translations
