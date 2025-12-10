@@ -359,7 +359,8 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 if first_ems.ecu_id:
                     return str(first_ems.ecu_id)
             except (IndexError, AttributeError):
-                # If there is no EMS data or ecu_id, fall back to entry_id for a stable device identifier.
+                # If there is no EMS data or ecu_id, fall back to entry_id
+                # for a stable device identifier.
                 pass
         # Fallback to entry_id which is stable across IP changes
         return self.coordinator.entry_id
