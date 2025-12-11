@@ -69,21 +69,13 @@ class HomevoltSensorEntityDescription(SensorEntityDescription):
     sensor_type: str | None = None  # Type of sensor: grid, solar, load
 
 
-def _get_battery_icon(soc_avg: float) -> str:
-    """Get battery icon based on state of charge."""
-    soc = float(soc_avg)
-    if soc < 500:
-        return "mdi:battery-outline"
-    return f"mdi:battery-{int(round((soc / 100) / 10.0) * 10)}"
-
-
 SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     # Aggregated device sensors
     HomevoltSensorEntityDescription(
         key="ems",
         name="Homevolt Status",
+        icon="mdi:state-machine",
         value_fn=lambda data: data.aggregated.ems_data.state_str,
-        icon_fn=lambda data: _get_battery_icon(data.aggregated.ems_data.soc_avg),
         attrs_fn=lambda data: {
             ATTR_EMS: [ems.__dict__ for ems in data.ems] if data.ems else [],
             ATTR_AGGREGATED: data.aggregated.__dict__ if data.aggregated else {},
@@ -641,9 +633,6 @@ async def async_setup_entry(
                         state_class=SensorStateClass.MEASUREMENT,
                         value_fn=lambda data, i=idx: float(data.ems[i].ems_data.soc_avg)
                         / 100,
-                        icon_fn=lambda data, i=idx: _get_battery_icon(
-                            data.ems[i].ems_data.soc_avg
-                        ),
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -741,9 +730,6 @@ async def async_setup_entry(
                                     data.ems[i].bms_data[j].soc
                                 )
                                 / 100,
-                                icon_fn=lambda data, i=idx, j=bms_idx: (
-                                    _get_battery_icon(data.ems[i].bms_data[j].soc)
-                                ),
                                 device_specific=True,
                             ),
                             ems_index=idx,
