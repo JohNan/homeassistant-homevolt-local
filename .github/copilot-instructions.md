@@ -77,7 +77,7 @@ mypy custom_components/homevolt_local
 
 ## Python Requirements
 
-- **Compatibility**: Python 3.12+
+- **Compatibility**: Python 3.13+ (required by Home Assistant 2025.2+)
 - **Async**: All external I/O operations must be async
 - **Type Hints**: Add type hints to all functions and methods
 
