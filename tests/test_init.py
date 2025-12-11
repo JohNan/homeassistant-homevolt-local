@@ -71,9 +71,8 @@ async def test_async_setup_entry_api_error(
         await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
-        # Integration should still load but coordinator may have no data
-        # The entry should be LOADED since we don't raise ConfigEntryNotReady
-        assert mock_config_entry.state is ConfigEntryState.LOADED
+        # When API fails on initial fetch, integration should retry setup
+        assert mock_config_entry.state is ConfigEntryState.SETUP_RETRY
 
 
 async def test_async_setup_entry_old_config_format(

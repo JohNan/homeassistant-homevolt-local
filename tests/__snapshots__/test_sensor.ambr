@@ -129,6 +129,7 @@
     'sensor.homevolt_status': dict({
       'attributes': dict({
         'friendly_name': 'Homevolt Status',
+        'icon': 'mdi:state-machine',
       }),
       'state': 'unknown',
     }),
