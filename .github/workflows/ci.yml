@@ -28,4 +28,6 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Run tests
-        run: uv run --env PYTHONPATH=. pytest
+        run: uv run pytest
+        env:
+          PYTHONPATH: .
