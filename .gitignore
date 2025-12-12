@@ -36,7 +36,17 @@ venv.bak/
 *.swo
 .DS_Store
 
+# Testing
+.pytest*
+.coverage
+coverage.xml
+
+# Linting
+.ruff_cache
+
 # Home Assistant
+config/*
+!config/configuration.yaml
 .storage/
 .cloud/
 .HA_VERSION

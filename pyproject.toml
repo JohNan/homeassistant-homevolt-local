@@ -1,0 +1,49 @@
+[project]
+name = "homeassistant-homevolt-local"
+version = "0.1.0"
+description = "Home Assistant Custom Integration for Homevolt Local devices"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.13.2"
+dependencies = [
+    "homeassistant>=2025.12.2",
+    "pycares<5.0.0",  # pycares 5.0.0 is incompatible with aiodns 3.5.0 (upstream bug)
+    "aiohttp>=3.8.0",
+    "voluptuous>=0.13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-homeassistant-custom-component>=0.13.300",
+    "pre-commit>=4.5.0",
+    "codespell>=2.4.1",
+    "yamllint>=1.37.1",
+    "mypy>=1.18.2",
+    "ruff>=0.8.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-homeassistant-custom-component>=0.13.300",
+    "pre-commit>=4.5.0",
+    "codespell>=2.4.1",
+    "yamllint>=1.37.1",
+    "mypy>=1.18.2",
+    "ruff>=0.8.4",
+]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+explicit_package_bases = true
+# Disable the misc error category for lambda type inference issues
+disable_error_code = ["misc"]
+exclude = [".venv", "config"]
+
+[tool.pytest.ini_options]
+addopts = "-p syrupy"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

@@ -1,0 +1,44 @@
+{
+  "aggregated": {
+    "ems_data": {
+      "state_str": "idle",
+      "soc_avg": 50.0,
+      "power": 100.0,
+      "energy_produced": 1000.0,
+      "energy_consumed": 500.0
+    },
+    "error_str": "",
+    "bms_data": [
+      {"soc": 5000, "tmax": 25.0, "tmin": 20.0}
+    ]
+  },
+  "ems": [
+    {
+      "ecu_id": "test_ecu_123",
+      "ems_data": {
+        "state_str": "idle",
+        "soc_avg": 50.0,
+        "power": 100.0,
+        "energy_produced": 1000.0,
+        "energy_consumed": 500.0
+      },
+      "error_str": "",
+      "inv_info": {"serial_number": "INV001"},
+      "ems_info": {"fw_version": "1.0.0"},
+      "bms_data": [
+        {"soc": 5000, "tmax": 25.0, "tmin": 20.0}
+      ]
+    }
+  ],
+  "sensors": [
+    {
+      "euid": "grid_sensor_001",
+      "type": "grid",
+      "total_power": 200.0,
+      "energy_imported": 2000.0,
+      "energy_exported": 1000.0,
+      "available": true,
+      "node_id": 0
+    }
+  ]
+}

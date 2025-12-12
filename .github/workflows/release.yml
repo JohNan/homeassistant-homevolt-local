@@ -30,7 +30,7 @@ jobs:
       - name: Create zip file
         working-directory: custom_components/homevolt_local
         run: zip -r ../../homevolt_local.zip .
-          
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:

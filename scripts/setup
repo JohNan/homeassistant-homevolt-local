@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+# Use uv for package installation
+if ! command -v uv &> /dev/null; then
+    echo "uv is not installed. Installing uv via pip..."
+    if ! python3 -m pip install uv; then
+        echo "Failed to install uv. Please install it manually: pip install uv"
+        exit 1
+    fi
+fi
+
+# Sync dependencies from pyproject.toml
+uv sync --all-extras --dev
+
+# Install pre-commit hooks
+if command -v pre-commit &> /dev/null; then
+    pre-commit install
+fi
