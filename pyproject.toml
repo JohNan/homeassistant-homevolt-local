@@ -7,6 +7,7 @@ disable_error_code = ["misc"]
 exclude = [".venv", "config"]
 
 [tool.pytest.ini_options]
+addopts = "-p syrupy"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
