@@ -32,11 +32,8 @@ tests/                   # Integration tests (at repo root)
 ### Install Dependencies
 
 ```bash
-# Using uv (faster)
-uv pip install -r requirements-dev.txt
-
-# Or using pip
-pip install -r requirements-dev.txt
+# Using uv (recommended)
+uv sync --all-extras --dev
 
 # Or use the setup script
 scripts/setup
@@ -45,26 +42,29 @@ scripts/setup
 ### Run Tests
 
 ```bash
-PYTHONPATH=. pytest
+uv run pytest
 ```
 
 ### Run Tests with Coverage
 
 ```bash
-PYTHONPATH=. pytest --cov=custom_components/homevolt_local --cov-report=term-missing
+uv run pytest --cov=custom_components/homevolt_local --cov-report=term-missing
 ```
 
 ### Run Linting
 
 ```bash
-ruff check custom_components/
-ruff format custom_components/
+uv run ruff check custom_components/
+uv run ruff format custom_components/
+
+# Or use the lint script
+scripts/lint
 ```
 
 ### Type Checking
 
 ```bash
-mypy custom_components/homevolt_local
+uv run mypy custom_components/homevolt_local
 ```
 
 ## Code Quality Standards

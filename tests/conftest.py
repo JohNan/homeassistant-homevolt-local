@@ -50,16 +50,6 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     return
 
 
-@pytest.fixture
-def snapshot(snapshot):
-    """Return snapshot assertion fixture with the Home Assistant extension."""
-    from pytest_homeassistant_custom_component.syrupy import (
-        HomeAssistantSnapshotExtension,
-    )
-
-    return snapshot.use_extension(HomeAssistantSnapshotExtension)
-
-
 def get_mock_api_response(
     state: str = "idle",
     power: float = 100.0,

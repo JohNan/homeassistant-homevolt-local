@@ -76,7 +76,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
                             f"Error communicating with API: {resp.status}"
                         )
                     return await resp.json()
-        except asyncio.TimeoutError as error:
+        except TimeoutError as error:
             raise UpdateFailed(
                 f"Timeout error fetching data from {resource}: {error}"
             ) from error
@@ -119,7 +119,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
                     response_text = await response.text()
                     schedule_info = self._parse_schedule_data(response_text)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.logger.error("Timeout fetching schedule data from %s", url)
         except aiohttp.ClientError as e:
             self.logger.error("Error fetching schedule data: %s", e)
