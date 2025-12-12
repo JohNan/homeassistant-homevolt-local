@@ -37,6 +37,7 @@ repos:
       - id: check-yaml
         exclude: ^config/
       - id: check-added-large-files
+        exclude: ^uv\.lock$
 
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.35.1
