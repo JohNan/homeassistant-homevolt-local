@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -101,7 +100,7 @@ async def try_connect(
                 except ValueError:
                     return False, response.status, None
             return False, response.status, None
-    except (aiohttp.ClientError, asyncio.TimeoutError):
+    except (TimeoutError, aiohttp.ClientError):
         return False, 0, None
 
 

@@ -4,19 +4,17 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-# Use uv for faster package installation (falls back to pip if uv not available)
-if command -v uv &> /dev/null; then
-    # Create virtual environment if it doesn't exist
-    if [ ! -d ".venv" ]; then
-        uv venv .venv
+# Use uv for package installation
+if ! command -v uv &> /dev/null; then
+    echo "uv is not installed. Installing uv via pip..."
+    if ! python3 -m pip install uv; then
+        echo "Failed to install uv. Please install it manually: pip install uv"
+        exit 1
     fi
-    # Use copy mode to avoid hardlink warnings in dev containers
-    uv pip install --link-mode=copy --upgrade --requirement requirements.txt
-    uv pip install --link-mode=copy --upgrade --requirement requirements-dev.txt
-else
-    python3 -m pip install --upgrade --requirement requirements.txt
-    python3 -m pip install --upgrade --requirement requirements-dev.txt
 fi
+
+# Sync dependencies from pyproject.toml
+uv sync --all-extras --dev
 
 # Install pre-commit hooks
 if command -v pre-commit &> /dev/null; then
