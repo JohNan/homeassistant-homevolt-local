@@ -117,6 +117,35 @@
       }),
       'state': 'unknown',
     }),
+    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_max_temp': dict({
+      'attributes': dict({
+        'device_class': 'temperature',
+        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Max Temp',
+        'icon': 'mdi:thermometer-chevron-up',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_min_temp': dict({
+      'attributes': dict({
+        'device_class': 'temperature',
+        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Min Temp',
+        'icon': 'mdi:thermometer-chevron-down',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_soc': dict({
+      'attributes': dict({
+        'device_class': 'battery',
+        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} SoC',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': '%',
+      }),
+      'state': 'unknown',
+    }),
     'sensor.homevolt_power': dict({
       'attributes': dict({
         'device_class': 'power',
@@ -137,35 +166,6 @@
       'attributes': dict({
         'device_class': 'battery',
         'friendly_name': 'Homevolt Total SoC',
-        'unit_of_measurement': '%',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.inv_1_batt_1_max_temp': dict({
-      'attributes': dict({
-        'device_class': 'temperature',
-        'friendly_name': 'Inv 1 Batt 1 Max Temp',
-        'icon': 'mdi:thermometer-chevron-up',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
-        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.inv_1_batt_1_min_temp': dict({
-      'attributes': dict({
-        'device_class': 'temperature',
-        'friendly_name': 'Inv 1 Batt 1 Min Temp',
-        'icon': 'mdi:thermometer-chevron-down',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
-        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.inverter_1_battery_1_soc': dict({
-      'attributes': dict({
-        'device_class': 'battery',
-        'friendly_name': 'Inverter 1 Battery 1 SoC',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': '%',
       }),
       'state': 'unknown',

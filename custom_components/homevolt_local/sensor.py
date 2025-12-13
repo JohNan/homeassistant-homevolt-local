@@ -723,7 +723,10 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_soc",
-                                name=f"Inverter {idx + 1} Battery {bms_idx + 1} SoC",
+                                name=(
+                                    "Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
+                                    " SoC"
+                                ),
                                 device_class=SensorDeviceClass.BATTERY,
                                 native_unit_of_measurement="%",
                                 state_class=SensorStateClass.MEASUREMENT,
@@ -742,7 +745,10 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmax",
-                                name=f"Inv {idx + 1} Batt {bms_idx + 1} Max Temp",
+                                name=(
+                                    "Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
+                                    " Max Temp"
+                                ),
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement="°C",
                                 state_class=SensorStateClass.MEASUREMENT,
@@ -762,7 +768,10 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmin",
-                                name=f"Inv {idx + 1} Batt {bms_idx + 1} Min Temp",
+                                name=(
+                                    "Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
+                                    " Min Temp"
+                                ),
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement="°C",
                                 state_class=SensorStateClass.MEASUREMENT,
