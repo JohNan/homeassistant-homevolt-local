@@ -144,6 +144,20 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         icon="mdi:battery-negative",
         value_fn=lambda data: float(data.aggregated.ems_data.energy_consumed) / 1000,
     ),
+    HomevoltSensorEntityDescription(
+        key="rated_capacity",
+        name="Homevolt Rated Capacity",
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        native_unit_of_measurement="Wh",
+        icon="mdi:battery-plus",
+        value_fn=lambda data: data.aggregated.ems_info.rated_capacity,
+    ),
+    HomevoltSensorEntityDescription(
+        key="charge_status",
+        name="Homevolt Charge Status",
+        icon="mdi:battery-sync",
+        value_fn=lambda data: data.aggregated.op_state_str,
+    ),
     # Sensor-specific sensors for grid, solar, and load
     # Grid sensors
     HomevoltSensorEntityDescription(
@@ -192,6 +206,33 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_GRID,
     ),
+    HomevoltSensorEntityDescription(
+        key="grid_rssi",
+        name="Grid RSSI",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement="dBm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:wifi-strength-2",
+        value_fn=lambda data: next(
+            (s.rssi for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+            None,
+        ),
+        sensor_specific=True,
+        sensor_type=SENSOR_TYPE_GRID,
+    ),
+    HomevoltSensorEntityDescription(
+        key="grid_pdr",
+        name="Grid Packet Delivery Rate",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:signal-variant",
+        value_fn=lambda data: next(
+            (s.pdr for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+            None,
+        ),
+        sensor_specific=True,
+        sensor_type=SENSOR_TYPE_GRID,
+    ),
     # Solar sensors
     HomevoltSensorEntityDescription(
         key="solar_power",
@@ -234,6 +275,33 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         icon="mdi:solar-power-variant-outline",
         value_fn=lambda data: next(
             (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
+            None,
+        ),
+        sensor_specific=True,
+        sensor_type=SENSOR_TYPE_SOLAR,
+    ),
+    HomevoltSensorEntityDescription(
+        key="solar_rssi",
+        name="Solar RSSI",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement="dBm",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:wifi-strength-2",
+        value_fn=lambda data: next(
+            (s.rssi for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
+            None,
+        ),
+        sensor_specific=True,
+        sensor_type=SENSOR_TYPE_SOLAR,
+    ),
+    HomevoltSensorEntityDescription(
+        key="solar_pdr",
+        name="Solar Packet Delivery Rate",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:signal-variant",
+        value_fn=lambda data: next(
+            (s.pdr for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
             None,
         ),
         sensor_specific=True,
@@ -714,10 +782,64 @@ async def async_setup_entry(
                     ems_index=idx,
                 )
             )
+            # Add a rated capacity sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"ems_{idx + 1}_rated_capacity",
+                        name=f"Homevolt Inverter {idx + 1} Rated Capacity",
+                        device_class=SensorDeviceClass.ENERGY_STORAGE,
+                        native_unit_of_measurement="Wh",
+                        icon="mdi:battery-plus",
+                        value_fn=lambda data, i=idx: data.ems[i]
+                        .ems_info
+                        .rated_capacity,
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
+            # Add a charge status sensor for each device
+            sensors.append(
+                HomevoltSensor(
+                    coordinator,
+                    HomevoltSensorEntityDescription(
+                        key=f"ems_{idx + 1}_charge_status",
+                        name=f"Homevolt Inverter {idx + 1} Charge Status",
+                        icon="mdi:battery-sync",
+                        value_fn=lambda data, i=idx: data.ems[i].op_state_str,
+                        device_specific=True,
+                    ),
+                    ems_index=idx,
+                )
+            )
 
             # Create battery sensors for this ems device
             if ems_device.bms_data:
                 for bms_idx, _bms_device in enumerate(ems_device.bms_data):
+                    sensors.append(
+                        HomevoltSensor(
+                            coordinator,
+                            HomevoltSensorEntityDescription(
+                                key=f"ems_{idx + 1}_bms_{bms_idx + 1}_rated_capacity",
+                                name=(
+                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
+                                    " Rated Capacity"
+                                ),
+                                device_class=SensorDeviceClass.ENERGY_STORAGE,
+                                native_unit_of_measurement="Wh",
+                                icon="mdi:battery-plus",
+                                value_fn=lambda data, i=idx, j=bms_idx: data.ems[
+                                    i
+                                ].bms_info[
+                                    j
+                                ].rated_cap,
+                                device_specific=True,
+                            ),
+                            ems_index=idx,
+                        )
+                    )
                     sensors.append(
                         HomevoltSensor(
                             coordinator,
