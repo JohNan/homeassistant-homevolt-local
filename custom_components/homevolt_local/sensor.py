@@ -846,7 +846,7 @@ async def async_setup_entry(
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_soc",
                                 name=(
-                                    "Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
+                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
                                     " SoC"
                                 ),
                                 device_class=SensorDeviceClass.BATTERY,
@@ -868,7 +868,7 @@ async def async_setup_entry(
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmax",
                                 name=(
-                                    "Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
+                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
                                     " Max Temp"
                                 ),
                                 device_class=SensorDeviceClass.TEMPERATURE,
@@ -891,7 +891,7 @@ async def async_setup_entry(
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmin",
                                 name=(
-                                    "Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
+                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
                                     " Min Temp"
                                 ),
                                 device_class=SensorDeviceClass.TEMPERATURE,
