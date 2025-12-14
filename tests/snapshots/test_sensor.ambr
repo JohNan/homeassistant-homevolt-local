@@ -81,12 +81,41 @@
       }),
       'state': 'unknown',
     }),
+    'sensor.homevolt_inverter_1_battery_1_max_temp': dict({
+      'attributes': dict({
+        'device_class': 'temperature',
+        'friendly_name': 'Homevolt Inverter 1 Battery 1 Max Temp',
+        'icon': 'mdi:thermometer-chevron-up',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.homevolt_inverter_1_battery_1_min_temp': dict({
+      'attributes': dict({
+        'device_class': 'temperature',
+        'friendly_name': 'Homevolt Inverter 1 Battery 1 Min Temp',
+        'icon': 'mdi:thermometer-chevron-down',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
+      }),
+      'state': 'unknown',
+    }),
     'sensor.homevolt_inverter_1_battery_1_rated_capacity': dict({
       'attributes': dict({
         'device_class': 'energy_storage',
         'friendly_name': 'Homevolt Inverter 1 Battery 1 Rated Capacity',
         'icon': 'mdi:battery-plus',
         'unit_of_measurement': 'Wh',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.homevolt_inverter_1_battery_1_soc': dict({
+      'attributes': dict({
+        'device_class': 'battery',
+        'friendly_name': 'Homevolt Inverter 1 Battery 1 SoC',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': '%',
       }),
       'state': 'unknown',
     }),
@@ -165,35 +194,6 @@
       'attributes': dict({
         'friendly_name': 'Homevolt Inverter 1 Status',
         'icon': 'mdi:information-outline',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_max_temp': dict({
-      'attributes': dict({
-        'device_class': 'temperature',
-        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Max Temp',
-        'icon': 'mdi:thermometer-chevron-up',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
-        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_min_temp': dict({
-      'attributes': dict({
-        'device_class': 'temperature',
-        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Min Temp',
-        'icon': 'mdi:thermometer-chevron-down',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
-        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_soc': dict({
-      'attributes': dict({
-        'device_class': 'battery',
-        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} SoC',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
-        'unit_of_measurement': '%',
       }),
       'state': 'unknown',
     }),
