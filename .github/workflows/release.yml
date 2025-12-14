@@ -1,3 +1,4 @@
+---
 name: Release
 
 on:
@@ -6,32 +7,57 @@ on:
 
 jobs:
   release:
-    name: Release
+    name: 📦 Update version and release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
+      - name: ⤵️ Checkout code
         uses: actions/checkout@v6
-
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF##*/v}" >> $GITHUB_OUTPUT
-
-      - name: "Set up Python"
-        uses: "actions/setup-python@v6"
         with:
-          python-version: "3.12"
-      - name: "Update manifest.json"
-        run: 'python scripts/update_manifest_version.py ${{steps.get_version.outputs.VERSION}}'
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify manifest version
+      - name: 🔢 Get version from tag
+        id: version
         run: |
-          grep '"version":' custom_components/homevolt_local/manifest.json
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
 
-      - name: Create zip file
+      - name: 📝 Update manifest.json version
+        run: |
+          jq --arg version "${{ steps.version.outputs.version }}" \
+            '.version = $version' \
+            custom_components/homevolt_local/manifest.json > tmp.json \
+            && mv tmp.json custom_components/homevolt_local/manifest.json
+
+      - name: 📝 Update pyproject.toml version
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.version }}"/' pyproject.toml
+
+      - name: 🔍 Verify changes
+        run: |
+          echo "=== manifest.json ==="
+          grep '"version"' custom_components/homevolt_local/manifest.json
+          echo "=== pyproject.toml ==="
+          grep '^version = ' pyproject.toml
+
+      - name: 📤 Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add custom_components/homevolt_local/manifest.json pyproject.toml
+          git diff --staged --quiet || git commit -m "🔖 Bump version to ${{ steps.version.outputs.version }}"
+          git push origin main
+
+      - name: 📦 Create release archive
         working-directory: custom_components/homevolt_local
         run: zip -r ../../homevolt_local.zip .
 
-      - name: Release
+      - name: 📎 Upload release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: ./homevolt_local.zip
+          files: homevolt_local.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
