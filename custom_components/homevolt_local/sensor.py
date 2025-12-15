@@ -354,6 +354,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
     """Representation of a Homevolt sensor."""
 
     _attr_has_entity_name = True
+    _attr_extra_state_attributes: dict[str, Any]
     entity_description: HomevoltSensorEntityDescription
 
     def __init__(
@@ -362,15 +363,42 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
         description: HomevoltSensorEntityDescription,
         ems_index: int | None = None,
         sensor_index: int | None = None,
+        bms_index: int | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
         self.ems_index = ems_index
         self.sensor_index = sensor_index
+        self.bms_index = bms_index
 
         # Create a unique ID based on the device properties if available
-        if ems_index is not None and coordinator.data and coordinator.data.ems:
+        if (
+            bms_index is not None
+            and ems_index is not None
+            and coordinator.data
+            and coordinator.data.ems
+        ):
+            # BMS (Battery) sensor - use ems ecu_id + bms serial for unique ID
+            try:
+                ems_device = coordinator.data.ems[ems_index]
+                ecu_id = ems_device.ecu_id or f"unknown_{ems_index}"
+                bms_info = (
+                    ems_device.bms_info[bms_index] if ems_device.bms_info else None
+                )
+                bms_serial = (
+                    bms_info.serial_number
+                    if bms_info and bms_info.serial_number
+                    else f"bms_{bms_index}"
+                )
+                self._attr_unique_id = (
+                    f"{DOMAIN}_{description.key}_bms_{ecu_id}_{bms_serial}"
+                )
+            except IndexError:
+                self._attr_unique_id = (
+                    f"{DOMAIN}_{description.key}_bms_{ems_index}_{bms_index}"
+                )
+        elif ems_index is not None and coordinator.data and coordinator.data.ems:
             try:
                 # Use the ecu_id for a consistent unique ID
                 # across different IP addresses
@@ -426,7 +454,63 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
         # Main aggregated device ID - use ecu_id for consistency across IP changes
         main_device_id = f"homevolt_{self._get_main_device_id()}"
 
+        # BMS (Battery) device - sub-device of the Inverter
         if (
+            self.bms_index is not None
+            and self.ems_index is not None
+            and self.coordinator.data
+            and self.coordinator.data.ems
+        ):
+            try:
+                ems_device = self.coordinator.data.ems[self.ems_index]
+                ecu_id = ems_device.ecu_id or f"unknown_{self.ems_index}"
+                inverter_device_id = f"ems_{ecu_id}"
+
+                # Get BMS info for this battery
+                bms_info = (
+                    ems_device.bms_info[self.bms_index]
+                    if ems_device.bms_info and len(ems_device.bms_info) > self.bms_index
+                    else None
+                )
+                bms_serial = (
+                    bms_info.serial_number
+                    if bms_info and bms_info.serial_number
+                    else f"bms_{self.bms_index}"
+                )
+                bms_fw = bms_info.fw_version if bms_info else ""
+                bms_id = bms_info.id + 1 if bms_info else self.bms_index + 1
+                inverter_num = self.ems_index + 1
+
+                return DeviceInfo(
+                    identifiers={(DOMAIN, f"bms_{ecu_id}_{bms_serial}")},
+                    translation_key="battery",
+                    translation_placeholders={
+                        "inverter_num": str(inverter_num),
+                        "battery_num": str(bms_id),
+                    },
+                    manufacturer="Homevolt",
+                    model="Battery Module",
+                    entry_type=DeviceEntryType.SERVICE,
+                    via_device=(DOMAIN, inverter_device_id),  # Link to Inverter
+                    sw_version=bms_fw,
+                    hw_version=bms_serial,
+                )
+            except IndexError:
+                return DeviceInfo(
+                    identifiers={
+                        (DOMAIN, f"bms_unknown_{self.ems_index}_{self.bms_index}")
+                    },
+                    translation_key="battery",
+                    translation_placeholders={
+                        "inverter_num": str(self.ems_index + 1),
+                        "battery_num": str(self.bms_index + 1),
+                    },
+                    manufacturer="Homevolt",
+                    model="Battery Module",
+                    entry_type=DeviceEntryType.SERVICE,
+                    via_device=(DOMAIN, main_device_id),
+                )
+        elif (
             self.ems_index is not None
             and self.coordinator.data
             and self.coordinator.data.ems
@@ -448,7 +532,8 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 # across different IP addresses for the same physical device
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"ems_{ecu_id}")},
-                    name=f"Inverter {ecu_id}",
+                    translation_key="inverter",
+                    translation_placeholders={"inverter_num": str(self.ems_index + 1)},
                     manufacturer="Homevolt",
                     model=f"Energy Management System {fw_version}",
                     entry_type=DeviceEntryType.SERVICE,
@@ -460,7 +545,8 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 # Fallback to a generic device info if we can't get specific info
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"ems_unknown_{self.ems_index}")},
-                    name=f"Inverter {self.ems_index + 1}",
+                    translation_key="inverter",
+                    translation_placeholders={"inverter_num": str(self.ems_index + 1)},
                     manufacturer="Homevolt",
                     model="Energy Management System",
                     entry_type=DeviceEntryType.SERVICE,
@@ -481,16 +567,34 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 # Capitalize the first letter of the sensor type for the name
                 sensor_type_name = sensor_type.capitalize()
 
+                # Map sensor type to translation key
+                translation_key_map = {
+                    "grid": "grid",
+                    "solar": "solar",
+                    "load": "load",
+                }
+                device_translation_key = translation_key_map.get(sensor_type.lower())
+
                 # Use the euid as the unique identifier, which should be consistent
                 # across different IP addresses for the same physical sensor
-                return DeviceInfo(
-                    identifiers={(DOMAIN, f"sensor_{euid}")},
-                    name=sensor_type_name,
-                    manufacturer="Homevolt",
-                    model=f"{sensor_type_name} Sensor (Node {node_id})",
-                    entry_type=DeviceEntryType.SERVICE,
-                    via_device=(DOMAIN, main_device_id),  # Link to the main device
-                )
+                if device_translation_key:
+                    return DeviceInfo(
+                        identifiers={(DOMAIN, f"sensor_{euid}")},
+                        translation_key=device_translation_key,
+                        manufacturer="Homevolt",
+                        model=f"{sensor_type_name} Sensor (Node {node_id})",
+                        entry_type=DeviceEntryType.SERVICE,
+                        via_device=(DOMAIN, main_device_id),  # Link to the main device
+                    )
+                else:
+                    return DeviceInfo(
+                        identifiers={(DOMAIN, f"sensor_{euid}")},
+                        name=sensor_type_name,
+                        manufacturer="Homevolt",
+                        model=f"{sensor_type_name} Sensor (Node {node_id})",
+                        entry_type=DeviceEntryType.SERVICE,
+                        via_device=(DOMAIN, main_device_id),  # Link to the main device
+                    )
             except IndexError:
                 # Fallback to a generic device info if we can't get specific info
                 return DeviceInfo(
@@ -505,7 +609,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
             # For aggregated sensors or if no ems_index or sensor_index is provided
             return DeviceInfo(
                 identifiers={(DOMAIN, main_device_id)},
-                name="System",
+                translation_key="system",
                 manufacturer="Homevolt",
                 model="Energy Management System",
                 entry_type=DeviceEntryType.SERVICE,
@@ -823,6 +927,7 @@ async def async_setup_entry(
                                 device_specific=True,
                             ),
                             ems_index=idx,
+                            bms_index=bms_idx,
                         )
                     )
                     sensors.append(
@@ -840,6 +945,7 @@ async def async_setup_entry(
                                 device_specific=True,
                             ),
                             ems_index=idx,
+                            bms_index=bms_idx,
                         )
                     )
                     # Add a max temperature sensor for each battery
@@ -860,6 +966,7 @@ async def async_setup_entry(
                                 device_specific=True,
                             ),
                             ems_index=idx,
+                            bms_index=bms_idx,
                         )
                     )
                     # Add a min temperature sensor for each battery
@@ -880,6 +987,7 @@ async def async_setup_entry(
                                 device_specific=True,
                             ),
                             ems_index=idx,
+                            bms_index=bms_idx,
                         )
                     )
 
