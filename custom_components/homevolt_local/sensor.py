@@ -74,7 +74,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     # Aggregated device sensors
     HomevoltSensorEntityDescription(
         key="ems",
-        name="Homevolt Status",
+        translation_key="status",
         icon="mdi:state-machine",
         value_fn=lambda data: data.aggregated.ems_data.state_str,
         attrs_fn=lambda data: {
@@ -87,7 +87,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="current_schedule",
-        name="Homevolt Current Schedule",
+        translation_key="current_schedule",
         icon="mdi:calendar-clock",
         value_fn=get_current_schedule,
         attrs_fn=lambda data: {
@@ -98,7 +98,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="ems_error",
-        name="Homevolt Error",
+        translation_key="error",
         icon="mdi:battery-unknown",
         value_fn=lambda data: data.aggregated.error_str[:255]
         if data.aggregated.error_str
@@ -109,7 +109,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="total_soc",
-        name="Homevolt Total SoC",
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement="%",
         value_fn=lambda data: float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc)
@@ -120,7 +119,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="power",
-        name="Homevolt Power",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement="W",
         icon="mdi:battery-sync-outline",
@@ -128,7 +126,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="energy_produced",
-        name="Homevolt Energy Produced",
+        translation_key="energy_discharged",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -137,7 +135,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="energy_consumed",
-        name="Homevolt Energy Consumed",
+        translation_key="energy_charged",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -146,7 +144,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="rated_capacity",
-        name="Homevolt Rated Capacity",
+        translation_key="rated_capacity",
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         native_unit_of_measurement="Wh",
         icon="mdi:battery-plus",
@@ -154,7 +152,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="charge_status",
-        name="Homevolt Charge Status",
+        translation_key="charge_status",
         icon="mdi:battery-sync",
         value_fn=lambda data: data.aggregated.op_state_str,
     ),
@@ -162,7 +160,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     # Grid sensors
     HomevoltSensorEntityDescription(
         key="grid_power",
-        name="Power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="W",
@@ -180,7 +177,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="grid_energy_imported",
-        name="Energy Imported",
+        translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -194,7 +191,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="grid_energy_exported",
-        name="Energy Exported",
+        translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -208,7 +205,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="grid_rssi",
-        name="Grid RSSI",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement="dBm",
         state_class=SensorStateClass.MEASUREMENT,
@@ -222,7 +218,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="grid_pdr",
-        name="Grid Packet Delivery Rate",
+        translation_key="packet_delivery_rate",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
@@ -236,7 +232,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     # Solar sensors
     HomevoltSensorEntityDescription(
         key="solar_power",
-        name="Power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="W",
@@ -254,7 +249,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="solar_energy_imported",
-        name="Energy Imported",
+        translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -268,7 +263,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="solar_energy_exported",
-        name="Energy Exported",
+        translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -282,7 +277,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="solar_rssi",
-        name="Solar RSSI",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement="dBm",
         state_class=SensorStateClass.MEASUREMENT,
@@ -296,7 +290,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="solar_pdr",
-        name="Solar Packet Delivery Rate",
+        translation_key="packet_delivery_rate",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
@@ -310,7 +304,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     # Load sensors
     HomevoltSensorEntityDescription(
         key="load_power",
-        name="Power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="W",
@@ -328,7 +321,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="load_energy_imported",
-        name="Energy Imported",
+        translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -342,7 +335,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="load_energy_exported",
-        name="Energy Exported",
+        translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement="kWh",
@@ -360,6 +353,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
 class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEntity):
     """Representation of a Homevolt sensor."""
 
+    _attr_has_entity_name = True
     entity_description: HomevoltSensorEntityDescription
 
     def __init__(
@@ -454,7 +448,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 # across different IP addresses for the same physical device
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"ems_{ecu_id}")},
-                    name=f"Homevolt Inverter {ecu_id}",
+                    name=f"Inverter {ecu_id}",
                     manufacturer="Homevolt",
                     model=f"Energy Management System {fw_version}",
                     entry_type=DeviceEntryType.SERVICE,
@@ -466,7 +460,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 # Fallback to a generic device info if we can't get specific info
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"ems_unknown_{self.ems_index}")},
-                    name=f"Homevolt Inverter {self.ems_index + 1}",
+                    name=f"Inverter {self.ems_index + 1}",
                     manufacturer="Homevolt",
                     model="Energy Management System",
                     entry_type=DeviceEntryType.SERVICE,
@@ -491,7 +485,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 # across different IP addresses for the same physical sensor
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"sensor_{euid}")},
-                    name=f"Homevolt {sensor_type_name}",
+                    name=sensor_type_name,
                     manufacturer="Homevolt",
                     model=f"{sensor_type_name} Sensor (Node {node_id})",
                     entry_type=DeviceEntryType.SERVICE,
@@ -501,7 +495,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 # Fallback to a generic device info if we can't get specific info
                 return DeviceInfo(
                     identifiers={(DOMAIN, f"sensor_unknown_{self.sensor_index}")},
-                    name=f"Homevolt Sensor {self.sensor_index + 1}",
+                    name=f"Sensor {self.sensor_index + 1}",
                     manufacturer="Homevolt",
                     model="Sensor",
                     entry_type=DeviceEntryType.SERVICE,
@@ -509,10 +503,9 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 )
         else:
             # For aggregated sensors or if no ems_index or sensor_index is provided
-            main_id = self._get_main_device_id()
             return DeviceInfo(
                 identifiers={(DOMAIN, main_device_id)},
-                name=f"Homevolt Local ({main_id})",
+                name="System",
                 manufacturer="Homevolt",
                 model="Energy Management System",
                 entry_type=DeviceEntryType.SERVICE,
@@ -662,7 +655,7 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_status",
-                        name=f"Homevolt Inverter {idx + 1} Status",
+                        translation_key="status",
                         icon="mdi:information-outline",
                         value_fn=lambda data, i=idx: data.ems[i].ems_data.state_str,
                         device_specific=True,
@@ -676,7 +669,6 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_temp",
-                        name=f"Homevolt Inverter {idx + 1} Inverter Temperature",
                         device_class=SensorDeviceClass.TEMPERATURE,
                         native_unit_of_measurement="°C",
                         state_class=SensorStateClass.MEASUREMENT,
@@ -696,7 +688,6 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_soc",
-                        name=f"Homevolt Inverter {idx + 1} SoC",
                         device_class=SensorDeviceClass.BATTERY,
                         native_unit_of_measurement="%",
                         state_class=SensorStateClass.MEASUREMENT,
@@ -713,7 +704,6 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_power",
-                        name=f"Homevolt Inverter {idx + 1} Power",
                         device_class=SensorDeviceClass.POWER,
                         native_unit_of_measurement="W",
                         icon="mdi:battery-sync-outline",
@@ -729,7 +719,7 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_energy_discharged",
-                        name=f"Homevolt Inverter {idx + 1} Energy Discharged",
+                        translation_key="energy_discharged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL_INCREASING,
                         native_unit_of_measurement="kWh",
@@ -749,7 +739,7 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_energy_charged",
-                        name=f"Homevolt Inverter {idx + 1} Energy Charged",
+                        translation_key="energy_charged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL_INCREASING,
                         native_unit_of_measurement="kWh",
@@ -769,7 +759,7 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_error",
-                        name=f"Homevolt Inverter {idx + 1} Error",
+                        translation_key="error",
                         icon="mdi:battery-unknown",
                         value_fn=lambda data, i=idx: data.ems[i].error_str[:255]
                         if data.ems[i].error_str
@@ -788,13 +778,13 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_rated_capacity",
-                        name=f"Homevolt Inverter {idx + 1} Rated Capacity",
+                        translation_key="rated_capacity",
                         device_class=SensorDeviceClass.ENERGY_STORAGE,
                         native_unit_of_measurement="Wh",
                         icon="mdi:battery-plus",
-                        value_fn=lambda data, i=idx: data.ems[i]
-                        .ems_info
-                        .rated_capacity,
+                        value_fn=lambda data, i=idx: data.ems[
+                            i
+                        ].ems_info.rated_capacity,
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -806,7 +796,7 @@ async def async_setup_entry(
                     coordinator,
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_charge_status",
-                        name=f"Homevolt Inverter {idx + 1} Charge Status",
+                        translation_key="charge_status",
                         icon="mdi:battery-sync",
                         value_fn=lambda data, i=idx: data.ems[i].op_state_str,
                         device_specific=True,
@@ -823,18 +813,13 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_rated_capacity",
-                                name=(
-                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
-                                    " Rated Capacity"
-                                ),
+                                translation_key="rated_capacity",
                                 device_class=SensorDeviceClass.ENERGY_STORAGE,
                                 native_unit_of_measurement="Wh",
                                 icon="mdi:battery-plus",
-                                value_fn=lambda data, i=idx, j=bms_idx: data.ems[
-                                    i
-                                ].bms_info[
-                                    j
-                                ].rated_cap,
+                                value_fn=lambda data, i=idx, j=bms_idx: data.ems[i]
+                                .bms_info[j]
+                                .rated_cap,
                                 device_specific=True,
                             ),
                             ems_index=idx,
@@ -845,10 +830,6 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_soc",
-                                name=(
-                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
-                                    " SoC"
-                                ),
                                 device_class=SensorDeviceClass.BATTERY,
                                 native_unit_of_measurement="%",
                                 state_class=SensorStateClass.MEASUREMENT,
@@ -867,10 +848,7 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmax",
-                                name=(
-                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
-                                    " Max Temp"
-                                ),
+                                translation_key="max_temperature",
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement="°C",
                                 state_class=SensorStateClass.MEASUREMENT,
@@ -890,10 +868,7 @@ async def async_setup_entry(
                             coordinator,
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmin",
-                                name=(
-                                    f"Homevolt Inverter {idx + 1} Battery {bms_idx + 1}"
-                                    " Min Temp"
-                                ),
+                                translation_key="min_temperature",
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement="°C",
                                 state_class=SensorStateClass.MEASUREMENT,
