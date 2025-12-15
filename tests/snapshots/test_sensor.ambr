@@ -1,20 +1,20 @@
 # serializer version: 1
 # name: test_sensor_states_snapshot
   dict({
-    'sensor.energy_exported': dict({
+    'sensor.grid_energy_exported': dict({
       'attributes': dict({
         'device_class': 'energy',
-        'friendly_name': 'Energy Exported',
+        'friendly_name': 'Grid Energy exported',
         'icon': 'mdi:transmission-tower-export',
         'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
         'unit_of_measurement': 'kWh',
       }),
       'state': 'unknown',
     }),
-    'sensor.energy_imported': dict({
+    'sensor.grid_energy_imported': dict({
       'attributes': dict({
         'device_class': 'energy',
-        'friendly_name': 'Energy Imported',
+        'friendly_name': 'Grid Energy imported',
         'icon': 'mdi:transmission-tower-import',
         'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
         'unit_of_measurement': 'kWh',
@@ -23,220 +23,220 @@
     }),
     'sensor.grid_packet_delivery_rate': dict({
       'attributes': dict({
-        'friendly_name': 'Grid Packet Delivery Rate',
+        'friendly_name': 'Grid Packet delivery rate',
         'icon': 'mdi:signal-variant',
         'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': '%',
       }),
       'state': 'unknown',
     }),
-    'sensor.grid_rssi': dict({
+    'sensor.grid_power': dict({
+      'attributes': dict({
+        'device_class': 'power',
+        'friendly_name': 'Grid Power',
+        'icon': 'mdi:transmission-tower',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': 'W',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.grid_signal_strength': dict({
       'attributes': dict({
         'device_class': 'signal_strength',
-        'friendly_name': 'Grid RSSI',
+        'friendly_name': 'Grid Signal strength',
         'icon': 'mdi:wifi-strength-2',
         'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': 'dBm',
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_charge_status': dict({
-      'attributes': dict({
-        'friendly_name': 'Homevolt Charge Status',
-        'icon': 'mdi:battery-sync',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_current_schedule': dict({
-      'attributes': dict({
-        'friendly_name': 'Homevolt Current Schedule',
-        'icon': 'mdi:calendar-clock',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_energy_consumed': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'Homevolt Energy Consumed',
-        'icon': 'mdi:battery-negative',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': 'kWh',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_energy_produced': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'Homevolt Energy Produced',
-        'icon': 'mdi:battery-positive',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': 'kWh',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_error': dict({
-      'attributes': dict({
-        'friendly_name': 'Homevolt Error',
-        'icon': 'mdi:battery-unknown',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_battery_1_rated_capacity': dict({
-      'attributes': dict({
-        'device_class': 'energy_storage',
-        'friendly_name': 'Homevolt Inverter 1 Battery 1 Rated Capacity',
-        'icon': 'mdi:battery-plus',
-        'unit_of_measurement': 'Wh',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_charge_status': dict({
-      'attributes': dict({
-        'friendly_name': 'Homevolt Inverter 1 Charge Status',
-        'icon': 'mdi:battery-sync',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_energy_charged': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'Homevolt Inverter 1 Energy Charged',
-        'icon': 'mdi:battery-negative',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': 'kWh',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_energy_discharged': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'Homevolt Inverter 1 Energy Discharged',
-        'icon': 'mdi:battery-positive',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': 'kWh',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_error': dict({
-      'attributes': dict({
-        'friendly_name': 'Homevolt Inverter 1 Error',
-        'icon': 'mdi:battery-unknown',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_inverter_temperature': dict({
-      'attributes': dict({
-        'device_class': 'temperature',
-        'friendly_name': 'Homevolt Inverter 1 Inverter Temperature',
-        'icon': 'mdi:thermometer',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
-        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_power': dict({
-      'attributes': dict({
-        'device_class': 'power',
-        'friendly_name': 'Homevolt Inverter 1 Power',
-        'icon': 'mdi:battery-sync-outline',
-        'unit_of_measurement': 'W',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_rated_capacity': dict({
-      'attributes': dict({
-        'device_class': 'energy_storage',
-        'friendly_name': 'Homevolt Inverter 1 Rated Capacity',
-        'icon': 'mdi:battery-plus',
-        'unit_of_measurement': 'Wh',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_inverter_1_soc': dict({
+    'sensor.inverter_test_ecu_123_battery': dict({
       'attributes': dict({
         'device_class': 'battery',
-        'friendly_name': 'Homevolt Inverter 1 SoC',
+        'friendly_name': 'Inverter test_ecu_123 Battery',
         'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': '%',
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_inverter_1_status': dict({
+    'sensor.inverter_test_ecu_123_battery_2': dict({
       'attributes': dict({
-        'friendly_name': 'Homevolt Inverter 1 Status',
-        'icon': 'mdi:information-outline',
+        'device_class': 'battery',
+        'friendly_name': 'Inverter test_ecu_123 Battery',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': '%',
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_max_temp': dict({
+    'sensor.inverter_test_ecu_123_charge_status': dict({
+      'attributes': dict({
+        'friendly_name': 'Inverter test_ecu_123 Charge status',
+        'icon': 'mdi:battery-sync',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.inverter_test_ecu_123_energy_charged': dict({
+      'attributes': dict({
+        'device_class': 'energy',
+        'friendly_name': 'Inverter test_ecu_123 Energy charged',
+        'icon': 'mdi:battery-negative',
+        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+        'unit_of_measurement': 'kWh',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.inverter_test_ecu_123_energy_discharged': dict({
+      'attributes': dict({
+        'device_class': 'energy',
+        'friendly_name': 'Inverter test_ecu_123 Energy discharged',
+        'icon': 'mdi:battery-positive',
+        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+        'unit_of_measurement': 'kWh',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.inverter_test_ecu_123_error': dict({
+      'attributes': dict({
+        'friendly_name': 'Inverter test_ecu_123 Error',
+        'icon': 'mdi:battery-unknown',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.inverter_test_ecu_123_maximum_temperature': dict({
       'attributes': dict({
         'device_class': 'temperature',
-        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Max Temp',
+        'friendly_name': 'Inverter test_ecu_123 Maximum temperature',
         'icon': 'mdi:thermometer-chevron-up',
         'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_min_temp': dict({
+    'sensor.inverter_test_ecu_123_minimum_temperature': dict({
       'attributes': dict({
         'device_class': 'temperature',
-        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} Min Temp',
+        'friendly_name': 'Inverter test_ecu_123 Minimum temperature',
         'icon': 'mdi:thermometer-chevron-down',
         'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_inverter_idx_1_battery_bms_idx_1_soc': dict({
-      'attributes': dict({
-        'device_class': 'battery',
-        'friendly_name': 'Homevolt Inverter {idx + 1} Battery {bms_idx + 1} SoC',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
-        'unit_of_measurement': '%',
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.homevolt_power': dict({
+    'sensor.inverter_test_ecu_123_power': dict({
       'attributes': dict({
         'device_class': 'power',
-        'friendly_name': 'Homevolt Power',
+        'friendly_name': 'Inverter test_ecu_123 Power',
         'icon': 'mdi:battery-sync-outline',
         'unit_of_measurement': 'W',
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_rated_capacity': dict({
+    'sensor.inverter_test_ecu_123_rated_capacity': dict({
       'attributes': dict({
         'device_class': 'energy_storage',
-        'friendly_name': 'Homevolt Rated Capacity',
+        'friendly_name': 'Inverter test_ecu_123 Rated capacity',
         'icon': 'mdi:battery-plus',
         'unit_of_measurement': 'Wh',
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_status': dict({
+    'sensor.inverter_test_ecu_123_rated_capacity_2': dict({
       'attributes': dict({
-        'friendly_name': 'Homevolt Status',
-        'icon': 'mdi:state-machine',
+        'device_class': 'energy_storage',
+        'friendly_name': 'Inverter test_ecu_123 Rated capacity',
+        'icon': 'mdi:battery-plus',
+        'unit_of_measurement': 'Wh',
       }),
       'state': 'unknown',
     }),
-    'sensor.homevolt_total_soc': dict({
+    'sensor.inverter_test_ecu_123_status': dict({
+      'attributes': dict({
+        'friendly_name': 'Inverter test_ecu_123 Status',
+        'icon': 'mdi:information-outline',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.inverter_test_ecu_123_temperature': dict({
+      'attributes': dict({
+        'device_class': 'temperature',
+        'friendly_name': 'Inverter test_ecu_123 Temperature',
+        'icon': 'mdi:thermometer',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'unit_of_measurement': <UnitOfTemperature.CELSIUS: '°C'>,
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_battery': dict({
       'attributes': dict({
         'device_class': 'battery',
-        'friendly_name': 'Homevolt Total SoC',
+        'friendly_name': 'System Battery',
         'unit_of_measurement': '%',
       }),
       'state': 'unknown',
     }),
-    'sensor.power': dict({
+    'sensor.system_charge_status': dict({
+      'attributes': dict({
+        'friendly_name': 'System Charge status',
+        'icon': 'mdi:battery-sync',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_current_schedule': dict({
+      'attributes': dict({
+        'friendly_name': 'System Current schedule',
+        'icon': 'mdi:calendar-clock',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_energy_charged': dict({
+      'attributes': dict({
+        'device_class': 'energy',
+        'friendly_name': 'System Energy charged',
+        'icon': 'mdi:battery-negative',
+        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+        'unit_of_measurement': 'kWh',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_energy_discharged': dict({
+      'attributes': dict({
+        'device_class': 'energy',
+        'friendly_name': 'System Energy discharged',
+        'icon': 'mdi:battery-positive',
+        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+        'unit_of_measurement': 'kWh',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_error': dict({
+      'attributes': dict({
+        'friendly_name': 'System Error',
+        'icon': 'mdi:battery-unknown',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_power': dict({
       'attributes': dict({
         'device_class': 'power',
-        'friendly_name': 'Power',
-        'icon': 'mdi:transmission-tower',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
+        'friendly_name': 'System Power',
+        'icon': 'mdi:battery-sync-outline',
         'unit_of_measurement': 'W',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_rated_capacity': dict({
+      'attributes': dict({
+        'device_class': 'energy_storage',
+        'friendly_name': 'System Rated capacity',
+        'icon': 'mdi:battery-plus',
+        'unit_of_measurement': 'Wh',
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_status': dict({
+      'attributes': dict({
+        'friendly_name': 'System Status',
+        'icon': 'mdi:state-machine',
       }),
       'state': 'unknown',
     }),

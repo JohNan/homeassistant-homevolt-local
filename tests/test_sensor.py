@@ -21,8 +21,8 @@ async def test_sensor_entities_created(
     await setup_integration(hass, mock_config_entry)
 
     # Check that sensors are created via state machine
-    # The sensor entity ID format is based on the entity name
-    state = hass.states.get("sensor.homevolt_status")
+    # Entity IDs now use device name + entity name pattern (e.g., sensor.system_status)
+    state = hass.states.get("sensor.system_status")
     assert state is not None
     # State may be "unknown" if coordinator doesn't have data
     # but entity should exist
@@ -36,7 +36,7 @@ async def test_sensor_power_entity_exists(
     """Test power sensor entity exists."""
     await setup_integration(hass, mock_config_entry)
 
-    state = hass.states.get("sensor.homevolt_power")
+    state = hass.states.get("sensor.system_power")
     assert state is not None
     assert state.attributes.get("device_class") == "power"
     assert state.attributes.get("unit_of_measurement") == "W"
@@ -50,7 +50,8 @@ async def test_sensor_soc_entity_exists(
     """Test state of charge sensor entity exists."""
     await setup_integration(hass, mock_config_entry)
 
-    state = hass.states.get("sensor.homevolt_total_soc")
+    # Entity name is derived from device_class BATTERY -> "Battery"
+    state = hass.states.get("sensor.system_battery")
     assert state is not None
     assert state.attributes.get("device_class") == "battery"
     assert state.attributes.get("unit_of_measurement") == "%"
@@ -61,10 +62,10 @@ async def test_sensor_energy_produced_entity_exists(
     mock_config_entry: MockConfigEntry,
     mock_api_client: MagicMock,
 ) -> None:
-    """Test energy produced sensor entity exists."""
+    """Test energy discharged sensor entity exists."""
     await setup_integration(hass, mock_config_entry)
 
-    state = hass.states.get("sensor.homevolt_energy_produced")
+    state = hass.states.get("sensor.system_energy_discharged")
     assert state is not None
     assert state.attributes.get("device_class") == "energy"
     assert state.attributes.get("unit_of_measurement") == "kWh"
@@ -80,11 +81,11 @@ async def test_sensor_entity_registry(
     await setup_integration(hass, mock_config_entry)
 
     # Check that main sensors are in the registry
-    entry = entity_registry.async_get("sensor.homevolt_status")
+    entry = entity_registry.async_get("sensor.system_status")
     assert entry is not None
     assert entry.unique_id == "homevolt_local_ems_test_ecu_123"
 
-    entry = entity_registry.async_get("sensor.homevolt_power")
+    entry = entity_registry.async_get("sensor.system_power")
     assert entry is not None
     assert entry.unique_id == "homevolt_local_power_test_ecu_123"
 
@@ -97,7 +98,7 @@ async def test_schedule_sensor_exists(
     """Test schedule sensor entity exists."""
     await setup_integration(hass, mock_config_entry)
 
-    state = hass.states.get("sensor.homevolt_current_schedule")
+    state = hass.states.get("sensor.system_current_schedule")
     assert state is not None
 
 
