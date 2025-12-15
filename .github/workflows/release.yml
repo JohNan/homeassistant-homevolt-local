@@ -51,6 +51,11 @@ jobs:
           git diff --staged --quiet || git commit -m "🔖 Bump version to ${{ steps.version.outputs.version }}"
           git push origin main
 
+      - name: 🏷️ Update release tag to include version bump
+        run: |
+          git tag -f ${{ github.ref_name }}
+          git push origin ${{ github.ref_name }} --force
+
       - name: 📦 Create release archive
         working-directory: custom_components/homevolt_local
         run: zip -r ../../homevolt_local.zip .
