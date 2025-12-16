@@ -1,5 +1,11 @@
 # Homevolt Local Integration for Home Assistant
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![GitHub Latest Release](https://img.shields.io/github/release/JohNan/homeassistant-homevolt-local.svg?style=for-the-badge&color=blue)](https://github.com/JohNan/homeassistant-homevolt-local/releases)
+[![GitHub All Releases](https://img.shields.io/github/downloads/JohNan/homeassistant-homevolt-local/total.svg?style=for-the-badge&color=blue)](https://github.com/JohNan/homeassistant-homevolt-local/releases)
+[![Tests](https://img.shields.io/github/actions/workflow/status/JohNan/homeassistant-homevolt-local/ci.yml?branch=main&style=for-the-badge&label=Tests)](https://github.com/JohNan/homeassistant-homevolt-local/actions/workflows/ci.yml)
+[![Validation](https://img.shields.io/github/actions/workflow/status/JohNan/homeassistant-homevolt-local/validation.yml?branch=main&style=for-the-badge&label=Validation)](https://github.com/JohNan/homeassistant-homevolt-local/actions/workflows/validation.yml)
+
 This is a custom integration for Home Assistant that connects to a Homevolt Energy Management System (EMS) and provides sensor data.
 
 ## Features

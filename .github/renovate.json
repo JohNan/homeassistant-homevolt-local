@@ -1,0 +1,60 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "schedule": ["before 2am"],
+  "rebaseWhen": "behind-base-branch",
+  "dependencyDashboard": true,
+  "labels": ["dependencies", "no-stale"],
+  "prCreation": "not-pending",
+  "platformAutomerge": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true
+  },
+  "commitMessagePrefix": "⬆️",
+  "packageRules": [
+    {
+      "matchManagers": ["uv"],
+      "addLabels": ["python"]
+    },
+    {
+      "matchManagers": ["uv"],
+      "matchDepTypes": ["dev"],
+      "rangeStrategy": "pin"
+    },
+    {
+      "description": "Automerge minor/patch Python updates (after CI passes)",
+      "matchManagers": ["uv"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Don't automerge major Python updates",
+      "matchManagers": ["uv"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "Don't automerge homeassistant updates (may have breaking changes)",
+      "matchManagers": ["uv"],
+      "matchPackageNames": ["homeassistant"],
+      "automerge": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "addLabels": ["github_actions"],
+      "rangeStrategy": "pin"
+    },
+    {
+      "description": "Automerge minor/patch GitHub Actions updates (after CI passes)",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Don't automerge major GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}
