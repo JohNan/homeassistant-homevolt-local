@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -354,7 +354,6 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
     """Representation of a Homevolt sensor."""
 
     _attr_has_entity_name = True
-    _attr_extra_state_attributes: ClassVar[dict[str, Any]] = {}
     entity_description: HomevoltSensorEntityDescription
 
     def __init__(
@@ -371,6 +370,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
         self.ems_index = ems_index
         self.sensor_index = sensor_index
         self.bms_index = bms_index
+        self._extra_attributes: dict[str, Any] = {}
 
         # Create a unique ID based on the device properties if available
         if (
@@ -615,12 +615,17 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 entry_type=DeviceEntryType.SERVICE,
             )
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the state attributes."""
+        return self._extra_attributes
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         if self.coordinator.data is None:
             self._attr_native_value = None
-            self._attr_extra_state_attributes = {}
+            self._extra_attributes = {}
             self.async_write_ha_state()
             return
 
@@ -639,7 +644,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                         len(data.ems),
                     )
                     self._attr_native_value = None
-                    self._attr_extra_state_attributes = {}
+                    self._extra_attributes = {}
                     self.async_write_ha_state()
                     return
 
@@ -655,7 +660,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                         len(data.sensors),
                     )
                     self._attr_native_value = None
-                    self._attr_extra_state_attributes = {}
+                    self._extra_attributes = {}
                     self.async_write_ha_state()
                     return
 
@@ -678,7 +683,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                                 self.entity_description.name,
                             )
                             self._attr_native_value = None
-                            self._attr_extra_state_attributes = {}
+                            self._extra_attributes = {}
                             self.async_write_ha_state()
                             return
 
@@ -710,19 +715,13 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
             if self.entity_description.attrs_fn:
                 if self.ems_index is not None:
                     # For device-specific sensors, pass the device index to the attrs_fn
-                    self._attr_extra_state_attributes = (
-                        self.entity_description.attrs_fn(data)
-                    )
+                    self._extra_attributes = self.entity_description.attrs_fn(data)
                 elif self.sensor_index is not None:
                     # For sensor-specific sensors, pass the sensor index to the attrs_fn
-                    self._attr_extra_state_attributes = (
-                        self.entity_description.attrs_fn(data)
-                    )
+                    self._extra_attributes = self.entity_description.attrs_fn(data)
                 else:
                     # For aggregated sensors, just pass the data
-                    self._attr_extra_state_attributes = (
-                        self.entity_description.attrs_fn(data)
-                    )
+                    self._extra_attributes = self.entity_description.attrs_fn(data)
 
         except (KeyError, TypeError, IndexError, ValueError, AttributeError) as err:
             _LOGGER.error(
@@ -731,7 +730,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                 err,
             )
             self._attr_native_value = None
-            self._attr_extra_state_attributes = {}
+            self._extra_attributes = {}
 
         self.async_write_ha_state()
 
