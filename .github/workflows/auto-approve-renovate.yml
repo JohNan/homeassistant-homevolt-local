@@ -15,6 +15,13 @@ permissions:
 jobs:
   auto-approve:
     runs-on: ubuntu-latest
-    if: github.actor == 'renovate[bot]'
+    # Security: Only approve if ALL conditions are met:
+    # 1. Actor is renovate[bot]
+    # 2. Actor ID matches official Renovate bot (29139614)
+    # 3. PR is from the same repository (not a fork)
+    if: |
+      github.actor == 'renovate[bot]' &&
+      github.event.pull_request.user.id == 29139614 &&
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: hmarr/auto-approve-action@v4
