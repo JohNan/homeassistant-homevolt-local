@@ -1,4 +1,64 @@
 {
+  "device": {
+    "system": {
+      "name": "System"
+    },
+    "inverter": {
+      "name": "Inverter {inverter_num}"
+    },
+    "battery": {
+      "name": "Inverter {inverter_num} Battery {battery_num}"
+    },
+    "grid": {
+      "name": "Grid"
+    },
+    "solar": {
+      "name": "Solar"
+    },
+    "load": {
+      "name": "Load"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Status"
+      },
+      "current_schedule": {
+        "name": "Current schedule"
+      },
+      "error": {
+        "name": "Error"
+      },
+      "energy_discharged": {
+        "name": "Energy discharged"
+      },
+      "energy_charged": {
+        "name": "Energy charged"
+      },
+      "rated_capacity": {
+        "name": "Rated capacity"
+      },
+      "charge_status": {
+        "name": "Charge status"
+      },
+      "energy_imported": {
+        "name": "Energy imported"
+      },
+      "energy_exported": {
+        "name": "Energy exported"
+      },
+      "packet_delivery_rate": {
+        "name": "Packet delivery rate"
+      },
+      "max_temperature": {
+        "name": "Maximum temperature"
+      },
+      "min_temperature": {
+        "name": "Minimum temperature"
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {

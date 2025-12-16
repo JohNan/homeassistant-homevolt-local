@@ -32,5 +32,6 @@ def update_version():
         f.write("\n")  # Ensure trailing newline
 
 
+
 if __name__ == "__main__":
     update_version()

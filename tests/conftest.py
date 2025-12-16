@@ -67,7 +67,7 @@ def get_mock_api_response(
                 "energy_consumed": 500.0,
             },
             "error_str": "",
-            "bms_data": [{"soc": soc}],
+            "bms_data": [{"soc": soc, "tmax": 25.0, "tmin": 20.0}],
         },
         "ems": [
             {
@@ -81,8 +81,16 @@ def get_mock_api_response(
                 },
                 "error_str": "",
                 "inv_info": {"serial_number": "inv_0"},
-                "ems_info": {"fw_version": "1.0.0"},
-                "bms_data": [],
+                "ems_info": {"fw_version": "1.0.0", "rated_capacity": 10000},
+                "bms_data": [{"soc": soc, "tmax": 25.0, "tmin": 20.0}],
+                "bms_info": [
+                    {
+                        "fw_version": "2.1.0",
+                        "serial_number": "BMS001",
+                        "rated_cap": 5000,
+                        "id": 0,
+                    }
+                ],
             }
         ],
         "sensors": [

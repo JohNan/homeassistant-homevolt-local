@@ -24,9 +24,17 @@
       },
       "error_str": "",
       "inv_info": {"serial_number": "INV001"},
-      "ems_info": {"fw_version": "1.0.0"},
+      "ems_info": {"fw_version": "1.0.0", "rated_capacity": 10000},
       "bms_data": [
         {"soc": 5000, "tmax": 25.0, "tmin": 20.0}
+      ],
+      "bms_info": [
+        {
+          "fw_version": "2.1.0",
+          "serial_number": "BMS001",
+          "rated_cap": 5000,
+          "id": 0
+        }
       ]
     }
   ],

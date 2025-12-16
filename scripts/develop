@@ -4,11 +4,6 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-# Activate virtual environment if it exists
-if [ -d ".venv" ]; then
-    source .venv/bin/activate
-fi
-
 # Create config dir if not present
 if [[ ! -d "${PWD}/config" ]]; then
     mkdir -p "${PWD}/config"
@@ -22,4 +17,7 @@ fi
 export PYTHONPATH="${PWD}/custom_components${PYTHONPATH:+:$PYTHONPATH}"
 
 # Start Home Assistant
-hass --config "${PWD}/config" --debug
+echo "Starting Home Assistant on port 8123 (inside container)"
+echo "Check VS Code's Ports panel for the forwarded address (e.g., localhost:8124)"
+echo ""
+uv run hass --config "${PWD}/config" --debug
