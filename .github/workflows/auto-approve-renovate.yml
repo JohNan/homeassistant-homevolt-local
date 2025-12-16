@@ -1,0 +1,27 @@
+---
+name: Auto-approve Renovate PRs
+
+# yamllint disable-line rule:truthy
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  pull-requests: write
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    # Security: Only approve if ALL conditions are met:
+    # 1. Actor is renovate[bot]
+    # 2. Actor ID matches official Renovate bot (29139614)
+    # 3. PR is from the same repository (not a fork)
+    if: |
+      github.actor == 'renovate[bot]' &&
+      github.event.pull_request.user.id == 29139614 &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: hmarr/auto-approve-action@f0939ea97e9205ef24d872e76833fa908a770363 # v4.0.0

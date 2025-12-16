@@ -1,6 +1,6 @@
 [project]
 name = "homeassistant-homevolt-local"
-version = "0.1.0"
+version = "0.0.0"
 description = "Home Assistant Custom Integration for Homevolt Local devices"
 readme = "README.md"
 license = "MIT"
