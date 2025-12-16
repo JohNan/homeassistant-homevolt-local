@@ -7,16 +7,13 @@ on:
 
 jobs:
   release:
-    name: 📦 Update version and release
+    name: 📦 Create release archive
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: ⤵️ Checkout code
         uses: actions/checkout@v6
-        with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🔢 Get version from tag
         id: version
@@ -26,35 +23,12 @@ jobs:
           echo "Version: $VERSION"
 
       - name: 📝 Update manifest.json version
-        run: |
-          jq --arg version "${{ steps.version.outputs.version }}" \
-            '.version = $version' \
-            custom_components/homevolt_local/manifest.json > tmp.json \
-            && mv tmp.json custom_components/homevolt_local/manifest.json
+        run: python3 scripts/update_manifest_version.py ${{ steps.version.outputs.version }}
 
-      - name: 📝 Update pyproject.toml version
-        run: |
-          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.version }}"/' pyproject.toml
-
-      - name: 🔍 Verify changes
+      - name: 🔍 Verify version
         run: |
           echo "=== manifest.json ==="
           grep '"version"' custom_components/homevolt_local/manifest.json
-          echo "=== pyproject.toml ==="
-          grep '^version = ' pyproject.toml
-
-      - name: 📤 Commit and push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add custom_components/homevolt_local/manifest.json pyproject.toml
-          git diff --staged --quiet || git commit -m "🔖 Bump version to ${{ steps.version.outputs.version }}"
-          git push origin main
-
-      - name: 🏷️ Update release tag to include version bump
-        run: |
-          git tag -f ${{ github.ref_name }}
-          git push origin ${{ github.ref_name }} --force
 
       - name: 📦 Create release archive
         working-directory: custom_components/homevolt_local
