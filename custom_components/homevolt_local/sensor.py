@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -354,7 +354,7 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
     """Representation of a Homevolt sensor."""
 
     _attr_has_entity_name = True
-    _attr_extra_state_attributes: dict[str, Any]
+    _attr_extra_state_attributes: ClassVar[dict[str, Any]] = {}
     entity_description: HomevoltSensorEntityDescription
 
     def __init__(
