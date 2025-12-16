@@ -15,5 +15,7 @@ jobs:
     steps:
       - name: 🚀 Run Release Drafter
         uses: release-drafter/release-drafter@v6.1.0
+        with:
+          config-name: release-drafter.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
