@@ -1,0 +1,99 @@
+---
+# Labels for the repository
+# Synced by .github/workflows/labels.yml
+
+# Type labels
+- name: "bug"
+  color: "d73a4a"
+  description: "Something isn't working"
+
+- name: "enhancement"
+  color: "a2eeef"
+  description: "New feature or request"
+
+- name: "documentation"
+  color: "0075ca"
+  description: "Improvements or additions to documentation"
+
+- name: "question"
+  color: "d876e3"
+  description: "Further information is requested"
+
+# Priority labels
+- name: "priority: critical"
+  color: "b60205"
+  description: "Critical priority"
+
+- name: "priority: high"
+  color: "d93f0b"
+  description: "High priority"
+
+- name: "priority: medium"
+  color: "fbca04"
+  description: "Medium priority"
+
+- name: "priority: low"
+  color: "0e8a16"
+  description: "Low priority"
+
+# Status labels
+- name: "status: needs triage"
+  color: "ededed"
+  description: "Needs triage"
+
+- name: "status: in progress"
+  color: "0052cc"
+  description: "Work in progress"
+
+- name: "status: blocked"
+  color: "b60205"
+  description: "Blocked by another issue or external dependency"
+
+- name: "status: wontfix"
+  color: "ffffff"
+  description: "This will not be worked on"
+
+- name: "status: duplicate"
+  color: "cfd3d7"
+  description: "This issue or pull request already exists"
+
+# Dependency labels
+- name: "dependencies"
+  color: "0366d6"
+  description: "Pull requests that update a dependency file"
+
+# Size labels (for PRs)
+- name: "size: XS"
+  color: "3CBF00"
+  description: "Extra small change"
+
+- name: "size: S"
+  color: "5D9801"
+  description: "Small change"
+
+- name: "size: M"
+  color: "7F7203"
+  description: "Medium change"
+
+- name: "size: L"
+  color: "A14C05"
+  description: "Large change"
+
+- name: "size: XL"
+  color: "C32607"
+  description: "Extra large change"
+
+# Breaking change
+- name: "breaking-change"
+  color: "b60205"
+  description: "Introduces a breaking change"
+
+# Good first issue
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers"
+
+# Help wanted
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed"
