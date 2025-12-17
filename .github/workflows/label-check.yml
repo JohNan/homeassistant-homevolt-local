@@ -1,14 +1,15 @@
 ---
-name: Label Check
+name: PR Labels
 
 # yamllint disable-line rule:truthy
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, labeled, unlabeled, synchronize]
+  workflow_call:
 
 jobs:
-  check-labels:
-    name: 🏷️ Check PR has label
+  pr_labels:
+    name: 🏷️ Verify PR has label
     runs-on: ubuntu-latest
     steps:
       - name: 🔍 Verify PR has at least one label
@@ -19,10 +20,7 @@ jobs:
           labels: |
             breaking-change
             new-feature
-            feature
             bugfix
-            bug
-            fix
             enhancement
             refactor
             performance
@@ -30,6 +28,5 @@ jobs:
             chore
             ci
             documentation
-            docs
             dependencies
             skip-changelog
