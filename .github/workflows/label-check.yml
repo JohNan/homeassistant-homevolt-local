@@ -16,3 +16,20 @@ jobs:
         with:
           mode: minimum
           count: 1
+          labels: |
+            breaking-change
+            new-feature
+            feature
+            bugfix
+            bug
+            fix
+            enhancement
+            refactor
+            performance
+            maintenance
+            chore
+            ci
+            documentation
+            docs
+            dependencies
+            skip-changelog
