@@ -22,17 +22,20 @@ def get_latest_tag():
 
         tags = tags_str.strip().split('\n')
 
-        # Find the most recent tag that is a valid semantic version
+        # Find the highest version from all valid tags
+        valid_versions = []
         for tag in tags:
             if tag.startswith('v'):
                 try:
                     # Strip the 'v' prefix and parse the version
                     version = semver.VersionInfo.parse(tag[1:])
-                    return version
+                    valid_versions.append(version)
                 except ValueError:
                     # Ignore tags that are not valid semantic versions
                     continue
-        return None
+        if not valid_versions:
+            return None
+        return max(valid_versions)
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 

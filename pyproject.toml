@@ -21,6 +21,8 @@ dev = [
     "yamllint>=1.37.1",
     "mypy>=1.18.2",
     "ruff>=0.8.4",
+    "semver>=3.0.0",
+    "pygithub>=1.55",
 ]
 
 [dependency-groups]
@@ -32,6 +34,8 @@ dev = [
     "yamllint>=1.37.1",
     "mypy>=1.18.2",
     "ruff>=0.8.4",
+    "semver>=3.0.0",
+    "pygithub>=1.55",
 ]
 
 [tool.mypy]
