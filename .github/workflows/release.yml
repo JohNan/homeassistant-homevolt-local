@@ -2,41 +2,84 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Create a pre-release'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   release:
-    name: 📦 Create release archive
+    name: 📦 Create release
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     steps:
       - name: ⤵️ Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Fetch all history for version calculation
 
-      - name: 🔢 Get version from tag
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: ➕ Install dependencies
+        run: pip install semver pygithub
+
+      - name: 🔢 Calculate next version
         id: version
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION=$(python .github/scripts/calculate_version.py --version-bump ${{ github.event.inputs.version_bump }} --prerelease ${{ github.event.inputs.prerelease }})
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
+          echo "Calculated version: $VERSION"
 
-      - name: 📝 Update manifest.json version
-        run: python3 scripts/update_manifest_version.py ${{ steps.version.outputs.version }}
-
-      - name: 🔍 Verify version
+      - name: 📝 Update project files
         run: |
-          echo "=== manifest.json ==="
-          grep '"version"' custom_components/homevolt_local/manifest.json
+          sed -i "s/^version = .*/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
+          sed -i "s/\"version\": .*/\"version\": \"${{ steps.version.outputs.version }}\",/" custom_components/homevolt_local/manifest.json
+
+      - name: 🚀 Commit and push version bump
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(release): bump version to ${{ steps.version.outputs.version }}"
+          branch: main
+          file_pattern: 'pyproject.toml custom_components/homevolt_local/manifest.json'
+
+      - name: 📜 Generate changelog
+        id: changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHANGELOG=$(python .github/scripts/generate_changelog.py --version ${{ steps.version.outputs.version }})
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: 📦 Create release archive
-        working-directory: custom_components/homevolt_local
-        run: zip -r ../../homevolt_local.zip .
+        run: |
+          cd custom_components/homevolt_local
+          zip -r ../../homevolt_local.zip .
 
-      - name: 📎 Upload release asset
+      - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "v${{ steps.version.outputs.version }}"
+          body: ${{ steps.changelog.outputs.changelog }}
+          prerelease: ${{ github.event.inputs.prerelease }}
           files: homevolt_local.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
