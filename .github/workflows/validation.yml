@@ -10,7 +10,7 @@ on:
 
 jobs:
   hacs:
-    name: HACS
+    name: 📦 HACS
     runs-on: "ubuntu-latest"
     steps:
       - uses: "actions/checkout@v6"
@@ -21,7 +21,7 @@ jobs:
           ignore: "brands" # it't submitted but waiting for approval
 
   hassfest:
-    name: Hassfest
+    name: 🏠 Hassfest
     runs-on: "ubuntu-latest"
     steps:
       - uses: "actions/checkout@v6"

@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   auto-approve:
+    name: ✅ auto-approve
     runs-on: ubuntu-latest
     # Security: Only approve if ALL conditions are met:
     # 1. Actor is renovate[bot]

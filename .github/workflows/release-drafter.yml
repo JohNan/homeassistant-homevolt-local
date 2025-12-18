@@ -17,5 +17,7 @@ jobs:
         uses: release-drafter/release-drafter@v6.1.0
         with:
           config-name: release-drafter.yml
+          include-pre-releases: true
+          prerelease: ${{ contains(github.ref_name, '-') }}  # Mark as pre-release if tag has '-' (e.g., v1.0.0-beta.1)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
