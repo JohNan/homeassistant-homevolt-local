@@ -17,8 +17,8 @@ jobs:
     steps:
       - uses: release-drafter/release-drafter@v6
         with:
-          publish: false
+          publish: true
           prerelease: true
           prerelease-identifier: ${{ inputs.identifier }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
