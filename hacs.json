@@ -2,5 +2,7 @@
   "name": "Homevolt Local",
   "homeassistant": "2025.12.1",
   "hacs": "2.0.5",
-  "render_readme": true
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "homevolt_local.zip"
 }
