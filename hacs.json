@@ -1,5 +1,6 @@
 {
   "name": "Homevolt Local",
+  "filename": "homevolt_local",
   "homeassistant": "2025.12.1",
   "hacs": "2.0.5",
   "render_readme": true,
