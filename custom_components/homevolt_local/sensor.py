@@ -110,6 +110,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="total_soc",
         device_class=SensorDeviceClass.BATTERY,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="%",
         value_fn=lambda data: float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc)
         / 100
@@ -120,6 +121,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="power",
         device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="W",
         icon="mdi:battery-sync-outline",
         value_fn=lambda data: data.aggregated.ems_data.power,
@@ -808,6 +810,7 @@ async def async_setup_entry(
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_power",
                         device_class=SensorDeviceClass.POWER,
+                        state_class=SensorStateClass.MEASUREMENT,
                         native_unit_of_measurement="W",
                         icon="mdi:battery-sync-outline",
                         value_fn=lambda data, i=idx: data.ems[i].ems_data.power,
