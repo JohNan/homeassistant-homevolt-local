@@ -171,6 +171,7 @@
       'attributes': dict({
         'device_class': 'battery',
         'friendly_name': 'System Battery',
+        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': '%',
       }),
       'state': 'unknown',
