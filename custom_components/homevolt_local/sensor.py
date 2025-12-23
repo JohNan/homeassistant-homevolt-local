@@ -132,6 +132,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="ems_error",
         translation_key="error",
         icon="mdi:battery-unknown",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.aggregated.error_str[:255]
         if data.aggregated.error_str
         else None,
@@ -152,7 +153,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="power",
-        entity_category=EntityCategory.DIAGNOSTIC,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -162,7 +162,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="energy_produced",
         translation_key="energy_discharged",
-        entity_category=EntityCategory.DIAGNOSTIC,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -178,7 +177,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="energy_consumed",
         translation_key="energy_charged",
-        entity_category=EntityCategory.DIAGNOSTIC,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -276,6 +274,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:wifi-strength-2",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
             (s.rssi for s in data.sensors if s.type == SENSOR_TYPE_GRID),
             None,
@@ -289,6 +288,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
             (s.pdr for s in data.sensors if s.type == SENSOR_TYPE_GRID),
             None,
@@ -382,6 +382,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:wifi-strength-2",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
             (s.rssi for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
             None,
@@ -395,6 +396,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
             (s.pdr for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
             None,
@@ -1011,6 +1013,7 @@ async def async_setup_entry(
                         attrs_fn=lambda data, i=idx: {
                             ATTR_ERROR_STR: data.ems[i].error_str,
                         },
+                        entity_category=EntityCategory.DIAGNOSTIC,
                         device_specific=True,
                     ),
                     ems_index=idx,
