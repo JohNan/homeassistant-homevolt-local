@@ -46,6 +46,29 @@ from .models import HomevoltData
 _LOGGER = logging.getLogger(__name__)
 
 
+def _safe_float(value: Any) -> float | None:
+    """Safely convert a value to float or return None."""
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_energy_val(value: Any) -> float | None:
+    """Return absolute energy value (or None if invalid)."""
+    v = _safe_float(value)
+    if v is None:
+        return None
+    return abs(v)
+
+
+def _raw_energy_val(value: Any) -> float | None:
+    """Return raw (signed) energy value or None."""
+    return _safe_float(value)
+
+
 def get_current_schedule(data: HomevoltData) -> str:
     """Get the current active schedule."""
     now = datetime.now()
@@ -68,6 +91,7 @@ class HomevoltSensorEntityDescription(SensorEntityDescription):
 
     value_fn: Callable[[HomevoltData], Any] | None = None
     icon_fn: Callable[[HomevoltData], str] | None = None
+    raw_value_fn: Callable[[HomevoltData], Any] | None = None
     attrs_fn: Callable[[HomevoltData], dict[str, Any]] | None = None
     device_specific: bool = (
         False  # Whether this sensor is specific to a device in the ems array
@@ -128,6 +152,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="power",
+        entity_category=EntityCategory.DIAGNOSTIC,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -143,7 +168,12 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-positive",
-        value_fn=lambda data: float(data.aggregated.ems_data.energy_produced),
+        value_fn=lambda data: _normalize_energy_val(
+            data.aggregated.ems_data.energy_produced
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            data.aggregated.ems_data.energy_produced
+        ),
     ),
     HomevoltSensorEntityDescription(
         key="energy_consumed",
@@ -154,7 +184,12 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-negative",
-        value_fn=lambda data: float(data.aggregated.ems_data.energy_consumed),
+        value_fn=lambda data: _normalize_energy_val(
+            data.aggregated.ems_data.energy_consumed
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            data.aggregated.ems_data.energy_consumed
+        ),
     ),
     HomevoltSensorEntityDescription(
         key="rated_capacity",
@@ -197,9 +232,17 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-import",
-        value_fn=lambda data: next(
-            (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
-            None,
+        value_fn=lambda data: _normalize_energy_val(
+            next(
+                (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+                None,
+            )
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            next(
+                (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+                None,
+            )
         ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_GRID,
@@ -212,9 +255,17 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-export",
-        value_fn=lambda data: next(
-            (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
-            None,
+        value_fn=lambda data: _normalize_energy_val(
+            next(
+                (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+                None,
+            )
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            next(
+                (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
+                None,
+            )
         ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_GRID,
@@ -235,7 +286,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="grid_pdr",
         translation_key="packet_delivery_rate",
-        native_unit_of_measurement="%",
+        native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
         value_fn=lambda data: next(
@@ -271,9 +322,25 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant",
-        value_fn=lambda data: next(
-            (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
-            None,
+        value_fn=lambda data: _normalize_energy_val(
+            next(
+                (
+                    s.energy_imported
+                    for s in data.sensors
+                    if s.type == SENSOR_TYPE_SOLAR
+                ),
+                None,
+            )
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            next(
+                (
+                    s.energy_imported
+                    for s in data.sensors
+                    if s.type == SENSOR_TYPE_SOLAR
+                ),
+                None,
+            )
         ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_SOLAR,
@@ -286,9 +353,25 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant-outline",
-        value_fn=lambda data: next(
-            (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
-            None,
+        value_fn=lambda data: _normalize_energy_val(
+            next(
+                (
+                    s.energy_exported
+                    for s in data.sensors
+                    if s.type == SENSOR_TYPE_SOLAR
+                ),
+                None,
+            )
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            next(
+                (
+                    s.energy_exported
+                    for s in data.sensors
+                    if s.type == SENSOR_TYPE_SOLAR
+                ),
+                None,
+            )
         ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_SOLAR,
@@ -309,7 +392,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="solar_pdr",
         translation_key="packet_delivery_rate",
-        native_unit_of_measurement="%",
+        native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
         value_fn=lambda data: next(
@@ -345,9 +428,17 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-import-outline",
-        value_fn=lambda data: next(
-            (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
-            None,
+        value_fn=lambda data: _normalize_energy_val(
+            next(
+                (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
+                None,
+            )
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            next(
+                (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
+                None,
+            )
         ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_LOAD,
@@ -360,9 +451,17 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-export-outline",
-        value_fn=lambda data: next(
-            (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
-            None,
+        value_fn=lambda data: _normalize_energy_val(
+            next(
+                (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
+                None,
+            )
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            next(
+                (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
+                None,
+            )
         ),
         sensor_specific=True,
         sensor_type=SENSOR_TYPE_LOAD,
@@ -743,6 +842,21 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                     # For aggregated sensors, just pass the data
                     self._extra_attributes = self.entity_description.attrs_fn(data)
 
+            # Preserve raw signed energy value if a raw_value_fn is provided
+            if self.entity_description.raw_value_fn:
+                try:
+                    raw_val = self.entity_description.raw_value_fn(data)
+                    if raw_val is not None:
+                        if not isinstance(self._extra_attributes, dict):
+                            self._extra_attributes = {}
+                        self._extra_attributes["raw_energy"] = raw_val
+                except Exception as err:
+                    _LOGGER.debug(
+                        "Could not extract raw energy for %s: %s",
+                        self.entity_description.name,
+                        err,
+                    )
+
         except (KeyError, TypeError, IndexError, ValueError, AttributeError) as err:
             _LOGGER.error(
                 "Error extracting sensor data for %s: %s",
@@ -849,7 +963,10 @@ async def async_setup_entry(
                         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-positive",
-                        value_fn=lambda data, i=idx: float(
+                        value_fn=lambda data, i=idx: _normalize_energy_val(
+                            data.ems[i].ems_data.energy_produced
+                        ),
+                        raw_value_fn=lambda data, i=idx: _raw_energy_val(
                             data.ems[i].ems_data.energy_produced
                         ),
                         device_specific=True,
@@ -869,7 +986,10 @@ async def async_setup_entry(
                         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-negative",
-                        value_fn=lambda data, i=idx: float(
+                        value_fn=lambda data, i=idx: _normalize_energy_val(
+                            data.ems[i].ems_data.energy_consumed
+                        ),
+                        raw_value_fn=lambda data, i=idx: _raw_energy_val(
                             data.ems[i].ems_data.energy_consumed
                         ),
                         device_specific=True,
