@@ -15,6 +15,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import (
+    PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    UnitOfEnergy,
+    UnitOfPower,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -111,7 +118,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="total_soc",
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="%",
+        native_unit_of_measurement=PERCENTAGE,
         value_fn=lambda data: float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc)
         / 100
         if data.aggregated.bms_data
@@ -122,7 +129,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="W",
+        native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:battery-sync-outline",
         value_fn=lambda data: data.aggregated.ems_data.power,
     ),
@@ -131,24 +138,26 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_discharged",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-positive",
-        value_fn=lambda data: float(data.aggregated.ems_data.energy_produced) / 1000,
+        value_fn=lambda data: float(data.aggregated.ems_data.energy_produced),
     ),
     HomevoltSensorEntityDescription(
         key="energy_consumed",
         translation_key="energy_charged",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-negative",
-        value_fn=lambda data: float(data.aggregated.ems_data.energy_consumed) / 1000,
+        value_fn=lambda data: float(data.aggregated.ems_data.energy_consumed),
     ),
     HomevoltSensorEntityDescription(
         key="rated_capacity",
         translation_key="rated_capacity",
         device_class=SensorDeviceClass.ENERGY_STORAGE,
-        native_unit_of_measurement="Wh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         icon="mdi:battery-plus",
         value_fn=lambda data: data.aggregated.ems_info.rated_capacity,
     ),
@@ -164,7 +173,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="grid_power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="W",
+        native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:transmission-tower",
         value_fn=lambda data: next(
             (s.total_power for s in data.sensors if s.type == SENSOR_TYPE_GRID), None
@@ -182,7 +191,8 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-import",
         value_fn=lambda data: next(
             (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
@@ -196,7 +206,8 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-export",
         value_fn=lambda data: next(
             (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
@@ -208,7 +219,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="grid_rssi",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
-        native_unit_of_measurement="dBm",
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:wifi-strength-2",
         value_fn=lambda data: next(
@@ -236,7 +247,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="solar_power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="W",
+        native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:solar-power",
         value_fn=lambda data: next(
             (s.total_power for s in data.sensors if s.type == SENSOR_TYPE_SOLAR), None
@@ -254,7 +265,8 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant",
         value_fn=lambda data: next(
             (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
@@ -268,7 +280,8 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant-outline",
         value_fn=lambda data: next(
             (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
@@ -280,7 +293,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     HomevoltSensorEntityDescription(
         key="solar_rssi",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
-        native_unit_of_measurement="dBm",
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:wifi-strength-2",
         value_fn=lambda data: next(
@@ -308,7 +321,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="load_power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="W",
+        native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:home-lightning-bolt",
         value_fn=lambda data: next(
             (s.total_power for s in data.sensors if s.type == SENSOR_TYPE_LOAD), None
@@ -326,7 +339,8 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-import-outline",
         value_fn=lambda data: next(
             (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
@@ -340,7 +354,8 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement="kWh",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-export-outline",
         value_fn=lambda data: next(
             (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
@@ -775,7 +790,7 @@ async def async_setup_entry(
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_temp",
                         device_class=SensorDeviceClass.TEMPERATURE,
-                        native_unit_of_measurement="°C",
+                        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
                         state_class=SensorStateClass.MEASUREMENT,
                         value_fn=lambda data, i=idx: float(
                             data.ems[i].ems_data.sys_temp
@@ -794,7 +809,7 @@ async def async_setup_entry(
                     HomevoltSensorEntityDescription(
                         key=f"ems_{idx + 1}_soc",
                         device_class=SensorDeviceClass.BATTERY,
-                        native_unit_of_measurement="%",
+                        native_unit_of_measurement=PERCENTAGE,
                         state_class=SensorStateClass.MEASUREMENT,
                         value_fn=lambda data, i=idx: float(data.ems[i].ems_data.soc_avg)
                         / 100,
@@ -811,7 +826,7 @@ async def async_setup_entry(
                         key=f"ems_{idx + 1}_power",
                         device_class=SensorDeviceClass.POWER,
                         state_class=SensorStateClass.MEASUREMENT,
-                        native_unit_of_measurement="W",
+                        native_unit_of_measurement=UnitOfPower.WATT,
                         icon="mdi:battery-sync-outline",
                         value_fn=lambda data, i=idx: data.ems[i].ems_data.power,
                         device_specific=True,
@@ -828,12 +843,12 @@ async def async_setup_entry(
                         translation_key="energy_discharged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL_INCREASING,
-                        native_unit_of_measurement="kWh",
+                        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+                        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-positive",
                         value_fn=lambda data, i=idx: float(
                             data.ems[i].ems_data.energy_produced
-                        )
-                        / 1000,
+                        ),
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -848,12 +863,12 @@ async def async_setup_entry(
                         translation_key="energy_charged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL_INCREASING,
-                        native_unit_of_measurement="kWh",
+                        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+                        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-negative",
                         value_fn=lambda data, i=idx: float(
                             data.ems[i].ems_data.energy_consumed
-                        )
-                        / 1000,
+                        ),
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -886,7 +901,7 @@ async def async_setup_entry(
                         key=f"ems_{idx + 1}_rated_capacity",
                         translation_key="rated_capacity",
                         device_class=SensorDeviceClass.ENERGY_STORAGE,
-                        native_unit_of_measurement="Wh",
+                        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                         icon="mdi:battery-plus",
                         value_fn=lambda data, i=idx: data.ems[
                             i
@@ -921,7 +936,7 @@ async def async_setup_entry(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_rated_capacity",
                                 translation_key="rated_capacity",
                                 device_class=SensorDeviceClass.ENERGY_STORAGE,
-                                native_unit_of_measurement="Wh",
+                                native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                                 icon="mdi:battery-plus",
                                 value_fn=lambda data, i=idx, j=bms_idx: data.ems[i]
                                 .bms_info[j]
@@ -938,7 +953,7 @@ async def async_setup_entry(
                             HomevoltSensorEntityDescription(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_soc",
                                 device_class=SensorDeviceClass.BATTERY,
-                                native_unit_of_measurement="%",
+                                native_unit_of_measurement=PERCENTAGE,
                                 state_class=SensorStateClass.MEASUREMENT,
                                 value_fn=lambda data, i=idx, j=bms_idx: float(
                                     data.ems[i].bms_data[j].soc
@@ -958,7 +973,7 @@ async def async_setup_entry(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmax",
                                 translation_key="max_temperature",
                                 device_class=SensorDeviceClass.TEMPERATURE,
-                                native_unit_of_measurement="°C",
+                                native_unit_of_measurement=UnitOfTemperature.CELSIUS,
                                 state_class=SensorStateClass.MEASUREMENT,
                                 value_fn=lambda data, i=idx, j=bms_idx: float(
                                     data.ems[i].bms_data[j].tmax
@@ -979,7 +994,7 @@ async def async_setup_entry(
                                 key=f"ems_{idx + 1}_bms_{bms_idx + 1}_tmin",
                                 translation_key="min_temperature",
                                 device_class=SensorDeviceClass.TEMPERATURE,
-                                native_unit_of_measurement="°C",
+                                native_unit_of_measurement=UnitOfTemperature.CELSIUS,
                                 state_class=SensorStateClass.MEASUREMENT,
                                 value_fn=lambda data, i=idx, j=bms_idx: float(
                                     data.ems[i].bms_data[j].tmin
