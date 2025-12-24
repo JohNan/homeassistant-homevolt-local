@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -68,7 +69,7 @@ async def test_sensor_energy_produced_entity_exists(
     state = hass.states.get("sensor.system_energy_discharged")
     assert state is not None
     assert state.attributes.get("device_class") == "energy"
-    assert state.attributes.get("unit_of_measurement") == "kWh"
+    assert state.attributes.get("unit_of_measurement") == UnitOfEnergy.KILO_WATT_HOUR
 
 
 async def test_sensor_entity_registry(
