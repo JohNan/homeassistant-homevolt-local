@@ -69,6 +69,137 @@ def _raw_energy_val(value: Any) -> float | None:
     return _safe_float(value)
 
 
+def _rssi_icon(value: Any) -> str:
+    """Return an mdi wifi-strength icon name for an RSSI value in dBm.
+
+    Higher (less negative) values map to stronger icons. None/invalid -> off.
+    """
+    try:
+        if value is None:
+            return "mdi:wifi-strength-off"
+        v = float(value)
+    except (TypeError, ValueError):
+        return "mdi:wifi-strength-off"
+
+    if v >= -55:
+        return "mdi:wifi-strength-4"
+    if v >= -70:
+        return "mdi:wifi-strength-3"
+    if v >= -85:
+        return "mdi:wifi-strength-2"
+    return "mdi:wifi-strength-1"
+
+
+def _rssi_icon_for_sensor(data: HomevoltData, sensor_type: str) -> str:
+    """Get RSSI value for a sensor type and return appropriate icon."""
+    val = next((s.rssi for s in data.sensors if s.type == sensor_type), None)
+    return _rssi_icon(val)
+
+
+def _battery_icon(soc_value: Any, charging: bool = False) -> str:
+    """Return appropriate mdi battery icon for SOC and charging state.
+
+    `soc_value` expected 0..100. If None/invalid -> unknown icon.
+    """
+    try:
+        if soc_value is None:
+            return "mdi:battery-unknown"
+        soc = float(soc_value)
+    except (TypeError, ValueError):
+        return "mdi:battery-unknown"
+
+    if soc >= 95:
+        return "mdi:battery-charging-100" if charging else "mdi:battery"
+    if soc >= 80:
+        return "mdi:battery-charging-80" if charging else "mdi:battery-90"
+    if soc >= 60:
+        return "mdi:battery-charging-60" if charging else "mdi:battery-80"
+    if soc >= 40:
+        return "mdi:battery-charging-40" if charging else "mdi:battery-60"
+    if soc >= 20:
+        return "mdi:battery-charging-20" if charging else "mdi:battery-40"
+    return "mdi:battery-charging-10" if charging else "mdi:battery-10"
+
+
+def _ems_is_charging(data: HomevoltData, ems_index: int) -> bool:
+    """Return True if given EMS device appears to be charging.
+
+    Use `op_state_str` when available, fallback to `ems_data.power < 0` heuristic.
+    """
+    try:
+        ems = data.ems[ems_index]
+    except Exception:
+        return False
+
+    # Prefer explicit op_state string
+    try:
+        op = ems.op_state_str
+        if op and isinstance(op, str):
+            low = op.lower()
+            if "charge" in low or "charging" in low:
+                return True
+            if "discharge" in low or "discharging" in low:
+                return False
+    except Exception as exc:
+        _LOGGER.debug("Error checking op_state_str for ems %s: %s", ems_index, exc)
+
+    # No reliable fallback available; assume not charging to avoid false positives.
+    return False
+
+
+def _battery_icon_for_ems(data: HomevoltData, ems_index: int) -> str:
+    """Return battery icon for EMS `soc_avg` and charging state."""
+    try:
+        soc = None
+        if data.ems and len(data.ems) > ems_index:
+            raw = data.ems[ems_index].ems_data.soc_avg
+            soc = float(raw) / 100 if raw is not None else None
+        charging = _ems_is_charging(data, ems_index)
+        return _battery_icon(soc, charging)
+    except Exception:
+        return "mdi:battery-unknown"
+
+
+def _battery_icon_for_bms(data: HomevoltData, ems_index: int, bms_index: int) -> str:
+    """Return battery icon for a specific BMS cell/module SOC."""
+    try:
+        soc = None
+        if data.ems and len(data.ems) > ems_index:
+            ems = data.ems[ems_index]
+            if ems.bms_data and len(ems.bms_data) > bms_index:
+                raw = ems.bms_data[bms_index].soc
+                soc = float(raw) / 100 if raw is not None else None
+        charging = _ems_is_charging(data, ems_index)
+        return _battery_icon(soc, charging)
+    except Exception:
+        return "mdi:battery-unknown"
+
+
+def _battery_icon_for_aggregated(data: HomevoltData) -> str:
+    """Return battery icon for aggregated total SOC."""
+    try:
+        soc = None
+        if (
+            data.aggregated
+            and data.aggregated.bms_data
+            and len(data.aggregated.bms_data) > BMS_DATA_INDEX_TOTAL
+        ):
+            raw = data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc
+            soc = float(raw) / 100 if raw is not None else None
+        charging = False
+        try:
+            op = data.aggregated.op_state_str
+            if op and isinstance(op, str):
+                low = op.lower()
+                if "charge" in low or "charging" in low:
+                    charging = True
+        except Exception as exc:
+            _LOGGER.debug("Error checking aggregated op_state_str: %s", exc)
+        return _battery_icon(soc, charging)
+    except Exception:
+        return "mdi:battery-unknown"
+
+
 def get_current_schedule(data: HomevoltData) -> str:
     """Get the current active schedule."""
     now = datetime.now()
@@ -145,6 +276,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=PERCENTAGE,
+        icon_fn=_battery_icon_for_aggregated,
         value_fn=lambda data: float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc)
         / 100
         if data.aggregated.bms_data
@@ -273,7 +405,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:wifi-strength-2",
+        icon_fn=lambda data: _rssi_icon_for_sensor(data, SENSOR_TYPE_GRID),
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
             (s.rssi for s in data.sensors if s.type == SENSOR_TYPE_GRID),
@@ -381,7 +513,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:wifi-strength-2",
+        icon_fn=lambda data: _rssi_icon_for_sensor(data, SENSOR_TYPE_SOLAR),
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
             (s.rssi for s in data.sensors if s.type == SENSOR_TYPE_SOLAR),
@@ -930,6 +1062,7 @@ async def async_setup_entry(
                         device_class=SensorDeviceClass.BATTERY,
                         native_unit_of_measurement=PERCENTAGE,
                         state_class=SensorStateClass.MEASUREMENT,
+                        icon_fn=lambda data, i=idx: _battery_icon_for_ems(data, i),
                         value_fn=lambda data, i=idx: float(data.ems[i].ems_data.soc_avg)
                         / 100,
                         device_specific=True,
@@ -1081,6 +1214,9 @@ async def async_setup_entry(
                                 device_class=SensorDeviceClass.BATTERY,
                                 native_unit_of_measurement=PERCENTAGE,
                                 state_class=SensorStateClass.MEASUREMENT,
+                                icon_fn=lambda data, i=idx, j=bms_idx: (
+                                    _battery_icon_for_bms(data, i, j)
+                                ),
                                 value_fn=lambda data, i=idx, j=bms_idx: float(
                                     data.ems[i].bms_data[j].soc
                                 )
