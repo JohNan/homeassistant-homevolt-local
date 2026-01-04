@@ -17,18 +17,27 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .const import (
     CONF_ADD_ANOTHER,
     CONF_HOST,
     CONF_HOSTS,
     CONF_MAIN_HOST,
+    CONF_MDNS_ID,
     CONF_RESOURCES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
     EMS_RESOURCE_PATH,
+)
+from .discovery import (
+    build_base_url,
+    extract_ip_or_host,
+    extract_mdns_id,
+    extract_port,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,7 +45,6 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
-        vol.Optional(CONF_USERNAME, default=""): str,
         vol.Optional(CONF_PASSWORD, default=""): str,
         vol.Optional(CONF_VERIFY_SSL, default=False): bool,
         vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
@@ -48,6 +56,15 @@ STEP_ADD_HOST_DATA_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_HOST, default=""): str,
         vol.Optional(CONF_ADD_ANOTHER, default=False): bool,
+    }
+)
+
+
+# Schema for zeroconf confirmation when auth is required
+STEP_ZEROCONF_CONFIRM_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_PASSWORD, default=""): str,
+        vol.Optional(CONF_VERIFY_SSL, default=False): bool,
     }
 )
 
@@ -160,7 +177,8 @@ async def validate_host(
         last_status = status
 
         if status == 401:
-            raise InvalidAuth("Invalid authentication")
+            # Use Home Assistant standard auth exception
+            raise ConfigEntryAuthFailed()
 
         if success and data:
             # Check if the response has the expected structure
@@ -171,8 +189,8 @@ async def validate_host(
 
     if not working_host or not response_data:
         if last_status == 401:
-            raise InvalidAuth("Invalid authentication")
-        raise CannotConnect(
+            raise ConfigEntryAuthFailed()
+        raise ConfigEntryNotReady(
             f"Cannot connect to {host}. Tried http and https protocols."
             if not has_protocol
             else f"Cannot connect to {host}"
@@ -218,10 +236,14 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 CONF_ECU_ID = "ecu_id"
 
 
-class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle a config flow for Homevolt Local."""
 
     VERSION = 1
+
+    _discovery_info: ZeroconfServiceInfo | dict | None = None
+    _discovered_host: str | None = None
+    _discovered_host_info: dict[str, Any] | None = None
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -252,8 +274,9 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 # Store the credentials and settings
-                self.username = user_input.get(CONF_USERNAME, "").strip() or None
+                # Username is always "admin" when auth is enabled
                 self.password = user_input.get(CONF_PASSWORD, "").strip() or None
+                self.username = "admin" if self.password else None
                 self.verify_ssl = user_input.get(CONF_VERIFY_SSL, True)
                 self.scan_interval = user_input.get(
                     CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
@@ -281,10 +304,10 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Proceed to the add_host step
                 return await self.async_step_add_host()
 
-            except CannotConnect as err:
+            except (ConfigEntryNotReady, CannotConnect) as err:
                 _LOGGER.exception("Connection exception: %s", err)
                 errors["base"] = "cannot_connect"
-            except InvalidAuth:
+            except (ConfigEntryAuthFailed, InvalidAuth):
                 errors["base"] = "invalid_auth"
             except InvalidResource:
                 errors["base"] = "invalid_resource"
@@ -331,9 +354,9 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Otherwise, proceed to the confirm step
                 return await self.async_step_confirm()
 
-            except CannotConnect:
+            except (ConfigEntryNotReady, CannotConnect):
                 errors["base"] = "cannot_connect"
-            except InvalidAuth:
+            except (ConfigEntryAuthFailed, InvalidAuth):
                 errors["base"] = "invalid_auth"
             except InvalidResource:
                 errors["base"] = "invalid_resource"
@@ -419,6 +442,134 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"hosts": hosts_str},
         )
 
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> ConfigFlowResult:
+        """Handle zeroconf discovery.
+
+        Following platinum integration patterns:
+        1. Extract device identifiers (MAC, serial, etc.)
+        2. Set unique_id and abort if already configured (with host update)
+        3. Validate device is reachable
+        4. Show confirmation form
+        """
+        _LOGGER.debug("Zeroconf discovery: %s", discovery_info)
+
+        # Support dict discovery_info used in tests as well as ZeroconfServiceInfo
+        if isinstance(discovery_info, dict):
+            name = discovery_info.get("name", "") or ""
+        else:
+            name = getattr(discovery_info, "name", "") or ""
+
+        # Only handle Homevolt service name (case-insensitive)
+        if "homevolt" not in name.lower():
+            return self.async_abort(reason="not_homevolt")
+
+        # Extract host information
+        host = extract_ip_or_host(discovery_info)
+        port = extract_port(discovery_info) or 80
+        mdns_id = extract_mdns_id(discovery_info)
+
+        if not host:
+            return self.async_abort(reason="cannot_connect")
+
+        # Use mdns_id from hostname (e.g., 68b6b34e70a0 from
+        # homevolt-68b6b34e70a0.local). Fall back to host if no mdns_id found.
+        unique_id = mdns_id or host
+        await self.async_set_unique_id(unique_id)
+
+        # Abort if already configured, but update host if it changed
+        host_url = build_base_url(host, port)
+        self._abort_if_unique_id_configured(
+            updates={
+                CONF_HOSTS: [host_url],
+                CONF_MAIN_HOST: host_url,
+            }
+        )
+
+        # Store discovery info for confirmation step
+        self._discovery_info = discovery_info
+        self._discovered_host = host_url
+        self._discovered_host_info = None
+
+        # Don't validate during discovery - wait for user confirmation
+        # This avoids overwhelming the device with requests during mDNS discovery
+        # Validation will happen in the confirm step when user clicks "Add"
+
+        # Set title placeholder for discovery notification
+        self.context["title_placeholders"] = {"name": name, "host": host}
+
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm zeroconf discovery.
+
+        If device was validated without auth, this is confirm-only.
+        If device requires auth, user must enter credentials.
+        """
+        if not self._discovered_host:
+            return self.async_abort(reason="cannot_connect")
+
+        host_str = self._discovered_host
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Username is always "admin" when auth is enabled
+            password = user_input.get(CONF_PASSWORD, "").strip() or None
+            username = "admin" if password else None
+            verify_ssl = user_input.get(CONF_VERIFY_SSL, False)
+
+            # Reuse cached info if already validated and no new credentials
+            if self._discovered_host_info and not username and not password:
+                host_info = self._discovered_host_info
+            else:
+                # Validate with provided credentials
+                try:
+                    host_info = await validate_host(
+                        self.hass, host_str, username, password, verify_ssl
+                    )
+                except (ConfigEntryAuthFailed, InvalidAuth):
+                    errors["base"] = "invalid_auth"
+                except (ConfigEntryNotReady, CannotConnect):
+                    errors["base"] = "cannot_connect"
+                except Exception:
+                    _LOGGER.exception("Unexpected error during validation")
+                    errors["base"] = "unknown"
+
+                if errors:
+                    return self.async_show_form(
+                        step_id="zeroconf_confirm",
+                        data_schema=STEP_ZEROCONF_CONFIRM_SCHEMA,
+                        errors=errors,
+                        description_placeholders={"host": host_str},
+                    )
+
+            # Create the config entry
+            return self.async_create_entry(
+                title=f"Homevolt ({host_info['host']})",
+                data={
+                    CONF_HOSTS: [host_info["host"]],
+                    CONF_MAIN_HOST: host_info["host"],
+                    CONF_RESOURCES: [host_info["resource_url"]],
+                    CONF_ECU_ID: host_info.get("ecu_id"),
+                    CONF_MDNS_ID: self.unique_id,  # Store mdns_id for future matching
+                    CONF_USERNAME: username,
+                    CONF_PASSWORD: password,
+                    CONF_VERIFY_SSL: verify_ssl,
+                    CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+                    CONF_TIMEOUT: DEFAULT_TIMEOUT,
+                },
+            )
+
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            data_schema=STEP_ZEROCONF_CONFIRM_SCHEMA,
+            errors=errors,
+            description_placeholders={"host": host_str},
+        )
+
 
 class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for Homevolt Local."""
@@ -435,8 +586,9 @@ class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
                 current_hosts = self.config_entry.data.get(CONF_HOSTS, [])
                 current_main_host = self.config_entry.data.get(CONF_MAIN_HOST)
                 current_ecu_id = self.config_entry.data.get(CONF_ECU_ID)
-                username = user_input.get(CONF_USERNAME, "").strip() or None
+                # Username is always "admin" when auth is enabled
                 password = user_input.get(CONF_PASSWORD, "").strip() or None
+                username = "admin" if password else None
                 verify_ssl = user_input.get(CONF_VERIFY_SSL, False)
 
                 # Get the new host
@@ -494,9 +646,9 @@ class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
 
                 return self.async_create_entry(title="", data={})
 
-            except CannotConnect:
+            except (ConfigEntryNotReady, CannotConnect):
                 errors["base"] = "cannot_connect"
-            except InvalidAuth:
+            except (ConfigEntryAuthFailed, InvalidAuth):
                 errors["base"] = "invalid_auth"
             except InvalidResource:
                 errors["base"] = "invalid_resource"
@@ -507,7 +659,6 @@ class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
         # Get current values for defaults
         current_hosts = self.config_entry.data.get(CONF_HOSTS, [])
         current_host = current_hosts[0] if current_hosts else ""
-        current_username = self.config_entry.data.get(CONF_USERNAME) or ""
         current_password = self.config_entry.data.get(CONF_PASSWORD) or ""
         current_verify_ssl = self.config_entry.data.get(CONF_VERIFY_SSL, False)
         current_scan_interval = self.config_entry.data.get(
@@ -518,7 +669,6 @@ class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
         options_schema = vol.Schema(
             {
                 vol.Optional(CONF_HOST, default=current_host): str,
-                vol.Optional(CONF_USERNAME, default=current_username): str,
                 vol.Optional(CONF_PASSWORD, default=current_password): str,
                 vol.Optional(CONF_VERIFY_SSL, default=current_verify_ssl): bool,
                 vol.Optional(CONF_SCAN_INTERVAL, default=current_scan_interval): int,

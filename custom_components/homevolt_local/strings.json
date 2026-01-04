@@ -66,8 +66,7 @@
         "description": "Set up Homevolt Local integration with your first system",
         "data": {
           "host": "IP or Hostname",
-          "username": "Username (optional)",
-          "password": "Password (optional)",
+          "password": "Password (leave empty if auth disabled)",
           "verify_ssl": "Verify SSL certificate",
           "scan_interval": "Scan interval (seconds)",
           "timeout": "Timeout (seconds)"
@@ -91,6 +90,14 @@
       "confirm": {
         "title": "Confirm Configuration",
         "description": "The following systems will be configured: {hosts}"
+      },
+      "zeroconf_confirm": {
+        "title": "Homevolt device discovered",
+        "description": "A Homevolt device was found at {host}. Enter password if authentication is enabled.",
+        "data": {
+          "password": "Password (leave empty if auth disabled)",
+          "verify_ssl": "Verify SSL certificate"
+        }
       }
     },
     "error": {
@@ -101,7 +108,8 @@
       "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "A Homevolt Local integration with one of these systems is already configured"
+      "already_configured": "A Homevolt Local integration with one of these systems is already configured",
+      "not_homevolt": "Discovered device is not a Homevolt device"
     }
   },
   "options": {
@@ -111,8 +119,7 @@
         "description": "Configure your Homevolt Local integration. Change the IP/Hostname to update the connection address.",
         "data": {
           "host": "IP or Hostname (e.g., 192.168.1.100)",
-          "username": "Username (optional)",
-          "password": "Password (optional)",
+          "password": "Password (leave empty if auth disabled)",
           "verify_ssl": "Verify SSL certificate",
           "scan_interval": "Scan interval (seconds)",
           "timeout": "Timeout (seconds)"
