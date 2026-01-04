@@ -34,6 +34,9 @@ ATTR_INV_INFO = "inv_info"
 ATTR_BMS_INFO = "bms_info"
 ATTR_EMS_INFO = "ems_info"
 
+# Zeroconf / mDNS helpers
+CONF_MDNS_ID = "mdns_id"
+
 # Sensor data attributes
 ATTR_TOTAL_POWER = "total_power"
 ATTR_ENERGY_IMPORTED = "energy_imported"

@@ -3,10 +3,11 @@
   "name": "Homevolt Local",
   "codeowners": ["@JohNan"],
   "config_flow": true,
-  "dependencies": [],
   "documentation": "https://github.com/JohNan/homeassistant-homevolt-local",
+  "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/JohNan/homeassistant-homevolt-local/issues",
   "requirements": ["aiohttp>=3.8.0,<4.0.0", "voluptuous>=0.13.0"],
-  "version": "0.0.0"
+  "version": "0.0.0",
+  "zeroconf": [{"type": "_http._tcp.local.", "name": "homevolt*"}]
 }

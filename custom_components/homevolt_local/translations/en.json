@@ -66,8 +66,7 @@
         "description": "Set up Homevolt Local integration with your first system",
         "data": {
           "host": "IP or Hostname (including http:// or https://)",
-          "username": "Username (optional)",
-          "password": "Password (optional)",
+          "password": "Password (leave empty if auth disabled)",
           "verify_ssl": "Verify SSL certificate (only for https)",
           "scan_interval": "Scan interval (seconds)",
           "timeout": "Timeout (seconds)"
@@ -111,8 +110,7 @@
         "description": "Configure your Homevolt Local integration. Change the IP/Hostname to update the connection address.",
         "data": {
           "host": "IP or Hostname (e.g., 192.168.1.100)",
-          "username": "Username (optional)",
-          "password": "Password (optional)",
+          "password": "Password (leave empty if auth disabled)",
           "verify_ssl": "Verify SSL certificate",
           "scan_interval": "Scan interval (seconds)",
           "timeout": "Timeout (seconds)"
