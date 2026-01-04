@@ -44,7 +44,6 @@
       'attributes': dict({
         'device_class': 'signal_strength',
         'friendly_name': 'Grid Signal strength',
-        'icon': 'mdi:wifi-strength-2',
         'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': 'dBm',
       }),

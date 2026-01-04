@@ -6,7 +6,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
@@ -33,7 +33,6 @@ async def test_config_flow_user_step(
         result["flow_id"],
         {
             CONF_HOST: "192.168.1.100",
-            CONF_USERNAME: "",
             CONF_PASSWORD: "",
         },
     )
@@ -59,7 +58,6 @@ async def test_config_flow_complete_single_host(
         result["flow_id"],
         {
             CONF_HOST: "192.168.1.100",
-            CONF_USERNAME: "",
             CONF_PASSWORD: "",
         },
     )
@@ -87,7 +85,7 @@ async def test_config_flow_complete_single_host(
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert "Homevolt Local" in result["title"]
+    assert "Homevolt" in result["title"]
     assert "http://192.168.1.100" in result["data"]["hosts"]
     assert len(mock_setup_entry.mock_calls) == 1
 
@@ -118,7 +116,6 @@ async def test_config_flow_cannot_connect(
             result["flow_id"],
             {
                 CONF_HOST: "192.168.1.100",
-                CONF_USERNAME: "",
                 CONF_PASSWORD: "",
             },
         )
@@ -154,7 +151,6 @@ async def test_config_flow_invalid_auth(
             result["flow_id"],
             {
                 CONF_HOST: "192.168.1.100",
-                CONF_USERNAME: "admin",
                 CONF_PASSWORD: "wrong",
             },
         )
@@ -177,7 +173,6 @@ async def test_config_flow_invalid_host(
         result["flow_id"],
         {
             CONF_HOST: "invalid host with spaces",
-            CONF_USERNAME: "",
             CONF_PASSWORD: "",
         },
     )
@@ -216,7 +211,6 @@ async def test_config_flow_auto_protocol_detection(
             result["flow_id"],
             {
                 CONF_HOST: "192.168.1.100",  # No protocol specified
-                CONF_USERNAME: "",
                 CONF_PASSWORD: "",
             },
         )
@@ -229,3 +223,109 @@ async def test_config_flow_auto_protocol_detection(
         # The session should have been called with http:// prefix first
         calls = mock_session.get.call_args_list
         assert any("http://192.168.1.100" in str(call) for call in calls)
+
+
+async def test_zeroconf_discovery_creates_entry(
+    hass: HomeAssistant,
+    mock_setup_entry: AsyncMock,
+    mock_api_response: dict[str, Any],
+) -> None:
+    """Test zeroconf discovery creates a config entry."""
+    discovery_info = {"name": "Homevolt", "host": "192.168.1.100", "port": 80}
+
+    with patch(
+        "custom_components.homevolt_local.config_flow.async_get_clientsession"
+    ) as mock_get_session:
+        mock_session = MagicMock()
+        mock_get_session.return_value = mock_session
+
+        # Mock successful response
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value=mock_api_response)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_session.get.return_value = mock_response
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_ZEROCONF},
+            data=discovery_info,
+        )
+        await hass.async_block_till_done()
+
+        # Should show confirmation form (do not auto-create)
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "zeroconf_confirm"
+
+        # Confirm without credentials (device was reachable earlier)
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {},
+        )
+        await hass.async_block_till_done()
+
+        assert result2["type"] is FlowResultType.CREATE_ENTRY
+        assert "Homevolt" in result2["title"]
+
+
+async def test_zeroconf_requires_auth_prompts_for_credentials(
+    hass: HomeAssistant,
+    mock_setup_entry: AsyncMock,
+    mock_api_response: dict[str, Any],
+) -> None:
+    """Test zeroconf discovery prompts for credentials and validates them."""
+    discovery_info = {"name": "Homevolt", "host": "192.168.1.100", "port": 80}
+
+    with patch(
+        "custom_components.homevolt_local.config_flow.async_get_clientsession"
+    ) as mock_get_session:
+        mock_session = MagicMock()
+        mock_get_session.return_value = mock_session
+
+        # Discovery goes straight to confirm form (no validation)
+        # First call during confirm with credentials returns 401 (wrong creds)
+        mock_response_401 = AsyncMock()
+        mock_response_401.status = 401
+        mock_response_401.__aenter__ = AsyncMock(return_value=mock_response_401)
+        mock_response_401.__aexit__ = AsyncMock(return_value=None)
+
+        # Second call with correct credentials succeeds
+        mock_response_200 = AsyncMock()
+        mock_response_200.status = 200
+        mock_response_200.json = AsyncMock(return_value=mock_api_response)
+        mock_response_200.__aenter__ = AsyncMock(return_value=mock_response_200)
+        mock_response_200.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session.get.side_effect = [mock_response_401, mock_response_200]
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_ZEROCONF},
+            data=discovery_info,
+        )
+        await hass.async_block_till_done()
+
+        # Should show credentials form (discovery doesn't validate)
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "zeroconf_confirm"
+
+        # Submit wrong credentials - should show error
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_PASSWORD: "wrong_password"},
+        )
+        await hass.async_block_till_done()
+
+        assert result2["type"] is FlowResultType.FORM
+        assert result2["errors"]["base"] == "invalid_auth"
+
+        # Submit correct credentials - should create entry
+        result3 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_PASSWORD: "correct_password"},
+        )
+        await hass.async_block_till_done()
+
+        assert result3["type"] is FlowResultType.CREATE_ENTRY
+        assert "Homevolt" in result3["title"]
