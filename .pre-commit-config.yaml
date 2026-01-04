@@ -53,9 +53,3 @@ repos:
         types: [python]
         files: ^custom_components/.+\.py$
         require_serial: true
-      - id: pytest
-        name: pytest
-        entry: uv run pytest tests/ -v --tb=short
-        language: system
-        pass_filenames: false
-        always_run: true
