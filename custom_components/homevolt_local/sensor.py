@@ -128,7 +128,7 @@ def _ems_is_charging(data: HomevoltData, ems_index: int) -> bool:
     """
     try:
         ems = data.ems[ems_index]
-    except Exception:
+    except (IndexError, TypeError, AttributeError):
         return False
 
     # Prefer explicit op_state string
@@ -140,7 +140,7 @@ def _ems_is_charging(data: HomevoltData, ems_index: int) -> bool:
                 return True
             if "discharge" in low or "discharging" in low:
                 return False
-    except Exception as exc:
+    except (AttributeError, TypeError) as exc:
         _LOGGER.debug("Error checking op_state_str for ems %s: %s", ems_index, exc)
 
     # No reliable fallback available; assume not charging to avoid false positives.
@@ -156,7 +156,7 @@ def _battery_icon_for_ems(data: HomevoltData, ems_index: int) -> str:
             soc = float(raw) / 100 if raw is not None else None
         charging = _ems_is_charging(data, ems_index)
         return _battery_icon(soc, charging)
-    except Exception:
+    except (IndexError, TypeError, AttributeError, ValueError):
         return "mdi:battery-unknown"
 
 
@@ -171,7 +171,7 @@ def _battery_icon_for_bms(data: HomevoltData, ems_index: int, bms_index: int) ->
                 soc = float(raw) / 100 if raw is not None else None
         charging = _ems_is_charging(data, ems_index)
         return _battery_icon(soc, charging)
-    except Exception:
+    except (IndexError, TypeError, AttributeError, ValueError):
         return "mdi:battery-unknown"
 
 
@@ -193,10 +193,10 @@ def _battery_icon_for_aggregated(data: HomevoltData) -> str:
                 low = op.lower()
                 if "charge" in low or "charging" in low:
                     charging = True
-        except Exception as exc:
+        except (AttributeError, TypeError) as exc:
             _LOGGER.debug("Error checking aggregated op_state_str: %s", exc)
         return _battery_icon(soc, charging)
-    except Exception:
+    except (IndexError, TypeError, AttributeError, ValueError):
         return "mdi:battery-unknown"
 
 
@@ -984,7 +984,13 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
                         if not isinstance(self._extra_attributes, dict):
                             self._extra_attributes = {}
                         self._extra_attributes["raw_energy"] = raw_val
-                except Exception as err:
+                except (
+                    KeyError,
+                    TypeError,
+                    IndexError,
+                    ValueError,
+                    AttributeError,
+                ) as err:
                     _LOGGER.debug(
                         "Could not extract raw energy for %s: %s",
                         self.entity_description.name,
