@@ -69,7 +69,8 @@ def build_base_url(host: str, port: int | None) -> str:
     return f"http://{host}"
 
 
-MDNS_ID_RE = re.compile(r"([0-9a-f]{6,})", re.IGNORECASE)
+# Match exactly 12 hex characters (MAC address without separators)
+MDNS_ID_RE = re.compile(r"([0-9a-f]{12})", re.IGNORECASE)
 
 
 def extract_mdns_id(discovery_info: ZeroconfServiceInfo | dict) -> str | None:
