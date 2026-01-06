@@ -665,8 +665,27 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
             try:
                 # Use the euid for a consistent unique ID across different IP addresses
                 sensor_data = coordinator.data.sensors[sensor_index]
-                euid = sensor_data.euid or f"unknown_{sensor_index}"
-                self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{euid}"
+                euid = sensor_data.euid
+                # Check for null/default euid (all zeros = virtual sensor)
+                # For these, use main device ID + sensor type for uniqueness
+                if not euid or euid == "0000000000000000":
+                    main_id = self.coordinator.get_main_device_id()
+                    sensor_type = sensor_data.type
+                    if not sensor_type:
+                        # This is unexpected - virtual sensors should have a type
+                        # Log warning so users know about potential data issues
+                        _LOGGER.warning(
+                            "Sensor at index %s has null EUID but no type. "
+                            "This may cause entity migration issues. "
+                            "Using fallback unique ID.",
+                            sensor_index,
+                        )
+                        sensor_type = f"sensor_{sensor_index}"
+                    self._attr_unique_id = (
+                        f"{DOMAIN}_{description.key}_{main_id}_{sensor_type}"
+                    )
+                else:
+                    self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{euid}"
             except IndexError:
                 # Fallback to a generic unique ID if we can't get the euid
                 self._attr_unique_id = (
@@ -675,37 +694,16 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
         else:
             # For aggregated sensors, use the first ecu_id for a stable unique ID
             # that doesn't change when IP changes
-            main_id = self._get_main_device_id()
+            main_id = self.coordinator.get_main_device_id()
             self._attr_unique_id = f"{DOMAIN}_{description.key}_{main_id}"
 
         self._attr_device_info = self.device_info
-
-    def _get_main_device_id(self) -> str:
-        """Get the main device identifier.
-
-        Uses ecu_id from config or data, with fallback to entry_id.
-        """
-        # First try to use ecu_id from coordinator (stored in config entry)
-        if self.coordinator.ecu_id:
-            return str(self.coordinator.ecu_id)
-        # Then try to get it from the data
-        if self.coordinator.data and self.coordinator.data.ems:
-            try:
-                first_ems = self.coordinator.data.ems[0]
-                if first_ems.ecu_id:
-                    return str(first_ems.ecu_id)
-            except (IndexError, AttributeError):
-                # If there is no EMS data or ecu_id, fall back to entry_id
-                # for a stable device identifier.
-                pass
-        # Fallback to entry_id which is stable across IP changes
-        return self.coordinator.entry_id
 
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information about this Homevolt device."""
         # Main aggregated device ID - use ecu_id for consistency across IP changes
-        main_device_id = f"homevolt_{self._get_main_device_id()}"
+        main_device_id = f"homevolt_{self.coordinator.get_main_device_id()}"
 
         # BMS (Battery) device - sub-device of the Inverter
         if (
