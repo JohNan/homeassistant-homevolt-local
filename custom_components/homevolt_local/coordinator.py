@@ -62,6 +62,26 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
 
         super().__init__(hass, logger, name=DOMAIN, update_interval=update_interval)
 
+    def get_main_device_id(self) -> str:
+        """Get the main device identifier for unique ID generation.
+
+        Uses ecu_id from config or data, with fallback to entry_id.
+        This provides a stable identifier that doesn't change when IP changes.
+        """
+        # First try to use ecu_id from config (stored in config entry)
+        if self.ecu_id:
+            return str(self.ecu_id)
+        # Then try to get it from the data
+        if self.data and self.data.ems:
+            try:
+                first_ems = self.data.ems[0]
+                if first_ems.ecu_id:
+                    return str(first_ems.ecu_id)
+            except (IndexError, AttributeError):
+                pass
+        # Fallback to entry_id which is stable across IP changes
+        return self.entry_id
+
     async def _fetch_resource_data(self, resource: str) -> dict[str, Any]:
         """Fetch data from a single resource."""
         try:
@@ -272,9 +292,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         all_ems = merged_data.get(ATTR_EMS, [])[:]
         all_sensors = merged_data.get(ATTR_SENSORS, [])[:]
 
-        for _, data in results:
-            # Skip if this is the main_data (already used to initialize merged_data)
-            if data is main_data:
+        for host, data in results:
+            # Skip the main host's data (already used to initialize merged_data)
+            if host == self.main_host:
                 continue
             # Add EMS devices
             if ATTR_EMS in data:

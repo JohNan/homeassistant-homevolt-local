@@ -43,23 +43,6 @@ NULL_EUID = "0000000000000000"
 # Sensor types that may have null euid
 VIRTUAL_SENSOR_TYPES = ["load", "grid", "solar"]
 
-# Sensor keys that need migration (sensor_specific sensors)
-SENSOR_KEYS_TO_MIGRATE = [
-    "grid_power",
-    "grid_energy_imported",
-    "grid_energy_exported",
-    "grid_rssi",
-    "grid_pdr",
-    "solar_power",
-    "solar_energy_imported",
-    "solar_energy_exported",
-    "solar_rssi",
-    "solar_pdr",
-    "load_power",
-    "load_energy_imported",
-    "load_energy_exported",
-]
-
 
 def _migrate_sensor_unique_ids(
     hass: HomeAssistant, entry: ConfigEntry, main_device_id: str
@@ -106,6 +89,13 @@ def _migrate_sensor_unique_ids(
                 break
 
         if not sensor_type:
+            _LOGGER.warning(
+                "Sensor %s has null EUID but key '%s' doesn't match any known "
+                "virtual sensor type (%s) - skipping migration",
+                entity_entry.entity_id,
+                key,
+                ", ".join(VIRTUAL_SENSOR_TYPES),
+            )
             continue
 
         # Build new unique ID
@@ -130,30 +120,6 @@ def _migrate_sensor_unique_ids(
         entity_registry.async_update_entity(
             entity_entry.entity_id, new_unique_id=new_unique_id
         )
-
-
-def _get_main_device_id(
-    coordinator: HomevoltDataUpdateCoordinator,
-    ecu_id: int | None,
-    entry_id: str,
-) -> str:
-    """Get the main device identifier for unique ID generation.
-
-    Uses ecu_id from config or data, with fallback to entry_id.
-    """
-    # First try to use ecu_id from config
-    if ecu_id:
-        return str(ecu_id)
-    # Then try to get it from the coordinator data
-    if coordinator.data and coordinator.data.ems:
-        try:
-            first_ems = coordinator.data.ems[0]
-            if first_ems.ecu_id:
-                return str(first_ems.ecu_id)
-        except (IndexError, AttributeError):
-            pass
-    # Fallback to entry_id
-    return entry_id
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -217,8 +183,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Migrate sensor unique IDs for sensors with null euid
     # This must be done after coordinator has data but before entities are set up
-    main_device_id = _get_main_device_id(coordinator, ecu_id, entry.entry_id)
-    _migrate_sensor_unique_ids(hass, entry, main_device_id)
+    _migrate_sensor_unique_ids(hass, entry, coordinator.get_main_device_id())
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
