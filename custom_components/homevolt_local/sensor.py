@@ -665,8 +665,17 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
             try:
                 # Use the euid for a consistent unique ID across different IP addresses
                 sensor_data = coordinator.data.sensors[sensor_index]
-                euid = sensor_data.euid or f"unknown_{sensor_index}"
-                self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{euid}"
+                euid = sensor_data.euid
+                # Check for null/default euid (all zeros = virtual sensor)
+                # For these, use main device ID + sensor type for uniqueness
+                if not euid or euid == "0000000000000000":
+                    main_id = self._get_main_device_id()
+                    sensor_type = sensor_data.type or f"sensor_{sensor_index}"
+                    self._attr_unique_id = (
+                        f"{DOMAIN}_{description.key}_{main_id}_{sensor_type}"
+                    )
+                else:
+                    self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{euid}"
             except IndexError:
                 # Fallback to a generic unique ID if we can't get the euid
                 self._attr_unique_id = (

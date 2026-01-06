@@ -21,6 +21,7 @@ from .const import (
     ATTR_EMS,
     ATTR_EUID,
     ATTR_SENSORS,
+    ATTR_TYPE,
     CONSOLE_RESOURCE_PATH,
     DOMAIN,
 )
@@ -272,6 +273,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         all_sensors = merged_data.get(ATTR_SENSORS, [])[:]
 
         for _, data in results:
+            # Skip if this is the main_data (already used to initialize merged_data)
+            if data is main_data:
+                continue
             # Add EMS devices
             if ATTR_EMS in data:
                 for ems in data[ATTR_EMS]:
@@ -287,9 +291,20 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             # Add sensors
             if ATTR_SENSORS in data:
                 for sensor in data[ATTR_SENSORS]:
-                    # Check if this sensor is already in the list (based on euid)
-                    if ATTR_EUID in sensor:
-                        euid = sensor[ATTR_EUID]
+                    # Check if sensor is already in list (based on euid AND type)
+                    # Using both because some sensors may have default/empty
+                    # euid values like "0000000000000000"
+                    euid = sensor.get(ATTR_EUID)
+                    sensor_type = sensor.get(ATTR_TYPE)
+                    if euid and sensor_type:
+                        # Check for duplicate by both euid and type
+                        if not any(
+                            s.get(ATTR_EUID) == euid and s.get(ATTR_TYPE) == sensor_type
+                            for s in all_sensors
+                        ):
+                            all_sensors.append(sensor)
+                    elif euid:
+                        # Fallback: if no type, just check euid
                         if not any(s.get(ATTR_EUID) == euid for s in all_sensors):
                             all_sensors.append(sensor)
                     else:
