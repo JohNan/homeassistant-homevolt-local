@@ -18,7 +18,6 @@ jobs:
         uses: "hacs/action@main"
         with:
           category: "integration"
-          ignore: "brands" # it't submitted but waiting for approval
 
   hassfest:
     name: 🏠 Hassfest
