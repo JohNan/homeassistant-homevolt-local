@@ -238,8 +238,8 @@ async def test_api_returns_duplicate_sensors(
     ):
         data = await coordinator._async_update_data()
 
-    # Duplicates from the same host's API response are NOT filtered by the coordinator.
-    # The coordinator only deduplicates when merging data from multiple hosts.
+    # Duplicates from the API are now deduplicated by the coordinator.
+    # This was fixed because duplicate sensors could cause issues for users.
     sensor_euids = [s.euid for s in data.sensors]
     solar_count = sensor_euids.count("sensor_solar_001")
 
@@ -249,9 +249,8 @@ async def test_api_returns_duplicate_sensors(
         "Sensor euids: %s, solar_count: %d", sensor_euids, solar_count
     )
 
-    # Document current behavior - duplicates ARE kept from main host
-    # This might be the root cause of the user's issue!
-    assert solar_count == 2, (
-        f"Expected 2 (duplicates kept from main host), got {solar_count}. "
-        "If this fails with 1, deduplication was added for main host data."
+    # Duplicates should be filtered out
+    assert solar_count == 1, (
+        f"Expected 1 (duplicates filtered), got {solar_count}. "
+        "Deduplication should remove duplicate sensors from the API response."
     )

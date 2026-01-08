@@ -418,6 +418,47 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             len(main_data.get(ATTR_SENSORS, [])),
         )
 
+    def _deduplicate_ems_list(
+        self, ems_list: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Deduplicate EMS devices based on ecu_id."""
+        seen_ecu_ids: set[Any] = set()
+        result: list[dict[str, Any]] = []
+        for ems in ems_list:
+            ecu_id = ems.get(ATTR_ECU_ID)
+            if ecu_id is not None:
+                if ecu_id not in seen_ecu_ids:
+                    seen_ecu_ids.add(ecu_id)
+                    result.append(ems)
+            else:
+                # If no ecu_id, just add it (can't deduplicate)
+                result.append(ems)
+        return result
+
+    def _deduplicate_sensor_list(
+        self, sensor_list: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Deduplicate sensors based on euid and type."""
+        seen_keys: set[tuple[Any, Any]] = set()
+        seen_euids: set[Any] = set()
+        result: list[dict[str, Any]] = []
+        for sensor in sensor_list:
+            euid = sensor.get(ATTR_EUID)
+            sensor_type = sensor.get(ATTR_TYPE)
+            if euid and sensor_type:
+                key = (euid, sensor_type)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    result.append(sensor)
+            elif euid:
+                if euid not in seen_euids:
+                    seen_euids.add(euid)
+                    result.append(sensor)
+            else:
+                # If no euid, just add it (can't deduplicate)
+                result.append(sensor)
+        return result
+
     def _merge_data(
         self,
         results: list[tuple[str, dict[str, Any]]],
@@ -434,8 +475,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         merged_data = dict(main_data)
 
         # Collect all EMS devices and sensors from all systems
-        all_ems = merged_data.get(ATTR_EMS, [])[:]
-        all_sensors = merged_data.get(ATTR_SENSORS, [])[:]
+        # Deduplicate main host data first (API may return duplicates)
+        all_ems = self._deduplicate_ems_list(merged_data.get(ATTR_EMS, []))
+        all_sensors = self._deduplicate_sensor_list(merged_data.get(ATTR_SENSORS, []))
 
         if verbose_log:
             self.logger.debug(

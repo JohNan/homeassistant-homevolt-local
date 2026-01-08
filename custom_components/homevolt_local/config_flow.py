@@ -323,7 +323,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
                 return await self.async_step_add_host()
 
             except (ConfigEntryNotReady, CannotConnect) as err:
-                _LOGGER.exception("Connection exception: %s", err)
+                _LOGGER.debug("Connection failed: %s", err)
                 errors["base"] = "cannot_connect"
             except (ConfigEntryAuthFailed, InvalidAuth):
                 errors["base"] = "invalid_auth"
