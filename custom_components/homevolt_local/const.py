@@ -9,7 +9,7 @@ CONF_HOSTS = "hosts"
 CONF_MAIN_HOST = "main_host"
 CONF_RESOURCES = "resources"
 CONF_ADD_ANOTHER = "add_another"
-DEFAULT_SCAN_INTERVAL = 45
+DEFAULT_SCAN_INTERVAL = 30
 # Separate timeouts for better handling of poor connections
 # Connect timeout: how long to wait to establish connection (fail fast if unreachable)
 # Read timeout: how long to wait for response data (more patience for slow devices)
