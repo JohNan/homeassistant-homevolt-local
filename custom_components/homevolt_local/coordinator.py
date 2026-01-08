@@ -339,14 +339,23 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         return HomevoltData.from_dict(merged_dict_data)
 
     async def _fetch_all_ems_data(self) -> list[tuple[str, dict[str, Any]]]:
-        """Fetch EMS data from all configured hosts sequentially."""
+        """Fetch EMS data from all configured hosts in parallel."""
+        if not self.resources:
+            return []
+
+        # Fetch all hosts in parallel for better performance
+        tasks = [self._fetch_resource_data(resource) for resource in self.resources]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
         valid_results: list[tuple[str, dict[str, Any]]] = []
-        for i, resource in enumerate(self.resources):
-            try:
-                result = await self._fetch_resource_data(resource)
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                self.logger.warning(
+                    "Error fetching data from %s: %s", self.resources[i], result
+                )
+            elif isinstance(result, dict):
                 valid_results.append((self.hosts[i], result))
-            except UpdateFailed as err:
-                self.logger.error("Error fetching data from %s: %s", resource, err)
+
         return valid_results
 
     async def _get_schedule_data_with_cache(self) -> dict[str, Any]:
