@@ -13,6 +13,36 @@ from custom_components.homevolt_local.const import DOMAIN
 from .conftest import get_mock_api_response, setup_integration
 
 
+def create_aiohttp_session_mock(
+    get_response: dict[str, Any] | None = None,
+    post_response: str = "Schedule get: 0 schedules. Current ID: ''",
+    get_json_func: Any | None = None,
+) -> MagicMock:
+    """Create a mock for aiohttp ClientSession with async context managers."""
+    mock_session = MagicMock()
+
+    # Mock async GET response (as async context manager)
+    mock_get_response = AsyncMock()
+    mock_get_response.status = 200
+    if get_json_func:
+        mock_get_response.json = AsyncMock(side_effect=get_json_func)
+    else:
+        mock_get_response.json = AsyncMock(return_value=get_response or {})
+    mock_get_response.__aenter__ = AsyncMock(return_value=mock_get_response)
+    mock_get_response.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get = MagicMock(return_value=mock_get_response)
+
+    # Mock async POST response (as async context manager)
+    mock_post_response = AsyncMock()
+    mock_post_response.status = 200
+    mock_post_response.text = AsyncMock(return_value=post_response)
+    mock_post_response.__aenter__ = AsyncMock(return_value=mock_post_response)
+    mock_post_response.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post = MagicMock(return_value=mock_post_response)
+
+    return mock_session
+
+
 async def test_coordinator_update(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
@@ -37,30 +67,18 @@ async def test_coordinator_handles_api_changes(
     initial_response = get_mock_api_response(state="idle", power=100.0)
     updated_response = get_mock_api_response(state="charging", power=500.0)
 
+    # Use a list to track which response to return
+    responses = [initial_response]
+
+    def mock_json():
+        return responses[0]
+
+    mock_session = create_aiohttp_session_mock(get_json_func=mock_json)
+
     with patch(
-        "custom_components.homevolt_local.async_get_clientsession"
-    ) as mock_get_session:
-        mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
-
-        # Mock GET response
-        mock_get_response = AsyncMock()
-        mock_get_response.status = 200
-        mock_get_response.json = AsyncMock(return_value=initial_response)
-        mock_get_response.__aenter__ = AsyncMock(return_value=mock_get_response)
-        mock_get_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_get_response
-
-        # Mock POST response for schedule
-        mock_post_response = AsyncMock()
-        mock_post_response.status = 200
-        mock_post_response.text = AsyncMock(
-            return_value="esp32> sched_list\nSchedule get: 0 schedules. Current ID: ''\nCommand 'sched_list' executed successfully\n"
-        )
-        mock_post_response.__aenter__ = AsyncMock(return_value=mock_post_response)
-        mock_post_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post.return_value = mock_post_response
-
+        "custom_components.homevolt_local.coordinator.async_get_clientsession",
+        return_value=mock_session,
+    ):
         # Setup integration
         await setup_integration(hass, mock_config_entry)
 
@@ -69,8 +87,8 @@ async def test_coordinator_handles_api_changes(
         # Verify initial state
         assert coordinator.data.aggregated.ems_data.state_str == "idle"
 
-        # Update the mock response
-        mock_get_response.json = AsyncMock(return_value=updated_response)
+        # Update the response to return
+        responses[0] = updated_response
 
         # Trigger a refresh
         await coordinator.async_refresh()
@@ -125,43 +143,24 @@ async def test_coordinator_multiple_hosts_data_merge(
         }
     ]
 
+    call_count = [0]
+
+    def mock_json():
+        call_count[0] += 1
+        # First call returns response1, second returns response2
+        return response1 if call_count[0] == 1 else response2
+
+    mock_session = create_aiohttp_session_mock(get_json_func=mock_json)
+
     with patch(
-        "custom_components.homevolt_local.async_get_clientsession"
-    ) as mock_get_session:
-        mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
-
-        # Track calls to return different responses for different URLs
-        call_count = [0]
-
-        async def mock_json():
-            call_count[0] += 1
-            # First call returns response1, second returns response2
-            return response1 if call_count[0] == 1 else response2
-
-        mock_get_response = AsyncMock()
-        mock_get_response.status = 200
-        mock_get_response.json = mock_json
-        mock_get_response.__aenter__ = AsyncMock(return_value=mock_get_response)
-        mock_get_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_get_response
-
-        # Mock POST response for schedule
-        mock_post_response = AsyncMock()
-        mock_post_response.status = 200
-        mock_post_response.text = AsyncMock(
-            return_value="Schedule get: 0 schedules. Current ID: ''"
-        )
-        mock_post_response.__aenter__ = AsyncMock(return_value=mock_post_response)
-        mock_post_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post.return_value = mock_post_response
-
+        "custom_components.homevolt_local.coordinator.async_get_clientsession",
+        return_value=mock_session,
+    ):
         await setup_integration(hass, multi_host_entry)
 
         coordinator = hass.data[DOMAIN][multi_host_entry.entry_id]
 
         # Verify data was merged - should have data from both hosts
-        # The exact behavior depends on the _merge_data implementation
         assert coordinator.data is not None
 
 
@@ -238,34 +237,18 @@ async def test_coordinator_sensor_deduplication_null_euid_different_types(
         },
     ]
 
+    call_count = [0]
+
+    def mock_json():
+        call_count[0] += 1
+        return response1 if call_count[0] == 1 else response2
+
+    mock_session = create_aiohttp_session_mock(get_json_func=mock_json)
+
     with patch(
-        "custom_components.homevolt_local.async_get_clientsession"
-    ) as mock_get_session:
-        mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
-
-        call_count = [0]
-
-        async def mock_json():
-            call_count[0] += 1
-            return response1 if call_count[0] == 1 else response2
-
-        mock_get_response = AsyncMock()
-        mock_get_response.status = 200
-        mock_get_response.json = mock_json
-        mock_get_response.__aenter__ = AsyncMock(return_value=mock_get_response)
-        mock_get_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_get_response
-
-        mock_post_response = AsyncMock()
-        mock_post_response.status = 200
-        mock_post_response.text = AsyncMock(
-            return_value="Schedule get: 0 schedules. Current ID: ''"
-        )
-        mock_post_response.__aenter__ = AsyncMock(return_value=mock_post_response)
-        mock_post_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post.return_value = mock_post_response
-
+        "custom_components.homevolt_local.coordinator.async_get_clientsession",
+        return_value=mock_session,
+    ):
         await setup_integration(hass, config_entry)
 
         coordinator: HomevoltDataUpdateCoordinator = hass.data[DOMAIN][
@@ -341,34 +324,18 @@ async def test_coordinator_sensor_deduplication_same_euid_same_type(
         },
     ]
 
+    call_count = [0]
+
+    def mock_json():
+        call_count[0] += 1
+        return response1 if call_count[0] == 1 else response2
+
+    mock_session = create_aiohttp_session_mock(get_json_func=mock_json)
+
     with patch(
-        "custom_components.homevolt_local.async_get_clientsession"
-    ) as mock_get_session:
-        mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
-
-        call_count = [0]
-
-        async def mock_json():
-            call_count[0] += 1
-            return response1 if call_count[0] == 1 else response2
-
-        mock_get_response = AsyncMock()
-        mock_get_response.status = 200
-        mock_get_response.json = mock_json
-        mock_get_response.__aenter__ = AsyncMock(return_value=mock_get_response)
-        mock_get_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_get_response
-
-        mock_post_response = AsyncMock()
-        mock_post_response.status = 200
-        mock_post_response.text = AsyncMock(
-            return_value="Schedule get: 0 schedules. Current ID: ''"
-        )
-        mock_post_response.__aenter__ = AsyncMock(return_value=mock_post_response)
-        mock_post_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post.return_value = mock_post_response
-
+        "custom_components.homevolt_local.coordinator.async_get_clientsession",
+        return_value=mock_session,
+    ):
         await setup_integration(hass, config_entry)
 
         coordinator = hass.data[DOMAIN][config_entry.entry_id]

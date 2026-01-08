@@ -23,8 +23,8 @@ from custom_components.homevolt_local.const import (
     CONF_HOSTS,
     CONF_MAIN_HOST,
     CONF_RESOURCES,
+    DEFAULT_READ_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_TIMEOUT,
     DOMAIN,
 )
 
@@ -121,7 +121,7 @@ def mock_config_entry() -> MockConfigEntry:
             CONF_PASSWORD: "",
             CONF_VERIFY_SSL: False,
             CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
-            CONF_TIMEOUT: DEFAULT_TIMEOUT,
+            CONF_TIMEOUT: DEFAULT_READ_TIMEOUT,
             "ecu_id": "test_ecu_123",
         },
         unique_id="test_ecu_123",
@@ -155,48 +155,50 @@ def mock_setup_entry() -> Generator[AsyncMock]:
 def mock_api_client(
     mock_api_response: dict[str, Any], mock_schedule_response: str
 ) -> Generator[MagicMock]:
-    """Mock the aiohttp client session for API calls."""
+    """Mock aiohttp ClientSession for API calls."""
     with patch(
-        "custom_components.homevolt_local.async_get_clientsession"
+        "custom_components.homevolt_local.coordinator.async_get_clientsession"
     ) as mock_get_session:
+        # Create a mock session instance
         mock_session = MagicMock()
         mock_get_session.return_value = mock_session
 
-        # Mock GET response for ems.json
+        # Mock async GET response for ems.json (as async context manager)
         mock_get_response = AsyncMock()
         mock_get_response.status = 200
         mock_get_response.json = AsyncMock(return_value=mock_api_response)
         mock_get_response.__aenter__ = AsyncMock(return_value=mock_get_response)
         mock_get_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_get_response
+        mock_session.get = MagicMock(return_value=mock_get_response)
 
-        # Mock POST response for console commands (schedule)
+        # Mock async POST response for console commands (schedule)
         mock_post_response = AsyncMock()
         mock_post_response.status = 200
         mock_post_response.text = AsyncMock(return_value=mock_schedule_response)
         mock_post_response.__aenter__ = AsyncMock(return_value=mock_post_response)
         mock_post_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.post.return_value = mock_post_response
+        mock_session.post = MagicMock(return_value=mock_post_response)
 
         yield mock_session
 
 
 @pytest.fixture
 def mock_config_flow_api(mock_api_response: dict[str, Any]) -> Generator[MagicMock]:
-    """Mock the aiohttp client session for config flow validation."""
+    """Mock aiohttp ClientSession for config flow validation."""
     with patch(
         "custom_components.homevolt_local.config_flow.async_get_clientsession"
     ) as mock_get_session:
+        # Create a mock session instance
         mock_session = MagicMock()
         mock_get_session.return_value = mock_session
 
-        # Mock successful GET response for validation
+        # Mock successful async GET response for validation (as async context manager)
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value=mock_api_response)
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_response
+        mock_session.get = MagicMock(return_value=mock_response)
 
         yield mock_session
 

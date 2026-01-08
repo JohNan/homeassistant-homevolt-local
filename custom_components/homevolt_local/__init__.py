@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from typing import Any
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -15,10 +16,10 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
     Platform,
 )
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.device_registry import async_get as async_get_device_registry
-from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
 from .const import (
     CONF_HOST,
@@ -26,8 +27,9 @@ from .const import (
     CONF_MAIN_HOST,
     CONF_RESOURCE,
     CONF_RESOURCES,
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_READ_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_TIMEOUT,
     DOMAIN,
     EMS_RESOURCE_PATH,
 )
@@ -44,7 +46,7 @@ NULL_EUID = "0000000000000000"
 VIRTUAL_SENSOR_TYPES = ["load", "grid", "solar"]
 
 
-def _migrate_sensor_unique_ids(
+async def _async_migrate_sensor_unique_ids(
     hass: HomeAssistant, entry: ConfigEntry, main_device_id: str
 ) -> None:
     """Migrate sensor unique IDs from old format to new format.
@@ -54,30 +56,26 @@ def _migrate_sensor_unique_ids(
 
     This migration is needed for sensors with null euid (0000000000000000).
     """
-    entity_registry = async_get_entity_registry(hass)
+    entity_registry = er.async_get(hass)
 
-    for entity_entry in list(entity_registry.entities.values()):
-        if entity_entry.config_entry_id != entry.entry_id:
-            continue
-
-        if entity_entry.platform != DOMAIN:
-            continue
-
+    @callback
+    def _async_migrator(entity_entry: er.RegistryEntry) -> dict[str, Any] | None:
+        """Migrate a single entity's unique ID if needed."""
         # Check if this is an old format unique ID with null euid
         old_suffix = f"_sensor_{NULL_EUID}"
         if not entity_entry.unique_id.endswith(old_suffix):
-            continue
+            return None
 
         # Extract the key from the old unique ID
         # Format: homevolt_local_{key}_sensor_{euid}
         prefix = f"{DOMAIN}_"
         if not entity_entry.unique_id.startswith(prefix):
-            continue
+            return None
 
         # Get the key part (between prefix and _sensor_)
         remainder = entity_entry.unique_id[len(prefix) :]
         if "_sensor_" not in remainder:
-            continue
+            return None
 
         key = remainder.split("_sensor_")[0]
 
@@ -96,7 +94,7 @@ def _migrate_sensor_unique_ids(
                 key,
                 ", ".join(VIRTUAL_SENSOR_TYPES),
             )
-            continue
+            return None
 
         # Build new unique ID
         new_unique_id = f"{DOMAIN}_{key}_{main_device_id}_{sensor_type}"
@@ -108,7 +106,7 @@ def _migrate_sensor_unique_ids(
                 entity_entry.entity_id,
                 new_unique_id,
             )
-            continue
+            return None
 
         _LOGGER.info(
             "Migrating entity %s unique ID from %s to %s",
@@ -117,9 +115,9 @@ def _migrate_sensor_unique_ids(
             new_unique_id,
         )
 
-        entity_registry.async_update_entity(
-            entity_entry.entity_id, new_unique_id=new_unique_id
-        )
+        return {"new_unique_id": new_unique_id}
+
+    await er.async_migrate_entries(hass, entry.entry_id, _async_migrator)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -156,13 +154,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     password = (entry.data.get(CONF_PASSWORD) or "").strip() or None
     verify_ssl = entry.data.get(CONF_VERIFY_SSL, True)
     scan_interval = entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    # Cap timeout at DEFAULT_TIMEOUT (migration for old entries with high timeout)
-    stored_timeout = entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
-    timeout = min(stored_timeout, DEFAULT_TIMEOUT)
+    read_timeout = entry.data.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
     # Get stored ecu_id for stable device identification
     ecu_id = entry.data.get("ecu_id")
-
-    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
 
     coordinator = HomevoltDataUpdateCoordinator(
         hass,
@@ -174,16 +168,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ecu_id=ecu_id,
         username=username,
         password=password,
-        session=session,
+        verify_ssl=verify_ssl,
         update_interval=timedelta(seconds=scan_interval),
-        timeout=timeout,
+        read_timeout=read_timeout,
     )
 
     await coordinator.async_config_entry_first_refresh()
 
     # Migrate sensor unique IDs for sensors with null euid
     # This must be done after coordinator has data but before entities are set up
-    _migrate_sensor_unique_ids(hass, entry, coordinator.get_main_device_id())
+    await _async_migrate_sensor_unique_ids(
+        hass, entry, coordinator.get_main_device_id()
+    )
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -192,7 +188,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def async_add_schedule(call: ServiceCall) -> None:
         """Handle the service call to add a schedule."""
-        device_registry = async_get_device_registry(hass)
+        device_registry = dr.async_get(hass)
         device_ids = call.data.get("device_id")
 
         if not device_ids:
@@ -227,6 +223,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             username = (config_entry.data.get(CONF_USERNAME) or "").strip() or None
             password = (config_entry.data.get(CONF_PASSWORD) or "").strip() or None
             verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
+            read_timeout = config_entry.data.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
 
             if not host:
                 _LOGGER.error("No host found for device %s", device_id)
@@ -244,17 +241,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             url = f"{host}{EMS_RESOURCE_PATH}"
 
             try:
-                session = async_get_clientsession(hass, verify_ssl=verify_ssl)
-                form_data = aiohttp.FormData()
-                form_data.add_field("cmd", command)
-
                 auth = (
                     aiohttp.BasicAuth(username, password)
                     if username and password
                     else None
                 )
-
-                async with session.post(url, data=form_data, auth=auth) as response:
+                timeout = aiohttp.ClientTimeout(
+                    connect=DEFAULT_CONNECT_TIMEOUT, sock_read=read_timeout
+                )
+                session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+                async with session.post(
+                    url, data={"cmd": command}, auth=auth, timeout=timeout
+                ) as response:
                     response_text = await response.text()
                     if response.status == 200:
                         _LOGGER.info(
@@ -267,6 +265,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             response.status,
                             response_text,
                         )
+            except TimeoutError:
+                _LOGGER.error("Timeout sending command to %s", host)
             except aiohttp.ClientError as e:
                 _LOGGER.error("Error sending command to %s: %s", host, e)
 

@@ -9,8 +9,8 @@ from datetime import timedelta
 from typing import Any
 
 import aiohttp
-import async_timeout
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -23,9 +23,19 @@ from .const import (
     ATTR_SENSORS,
     ATTR_TYPE,
     CONSOLE_RESOURCE_PATH,
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_READ_TIMEOUT,
     DOMAIN,
+    SCHEDULE_FETCH_INTERVAL,
 )
 from .models import HomevoltData, ScheduleEntry
+
+_LOGGER = logging.getLogger(__name__)
+
+# Retry configuration with exponential backoff for poor connections
+RETRY_COUNT = 3
+RETRY_BACKOFF_FACTOR = 2.0  # seconds: 2, 4, 8...
+RETRY_STATUS_CODES = {502, 503, 504}
 
 
 class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
@@ -42,9 +52,9 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         ecu_id: int | None,
         username: str | None,
         password: str | None,
-        session: aiohttp.ClientSession,
+        verify_ssl: bool,
         update_interval: timedelta,
-        timeout: int,
+        read_timeout: int = DEFAULT_READ_TIMEOUT,
     ) -> None:
         """Initialize."""
         self.entry_id = entry_id
@@ -54,13 +64,123 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         self.ecu_id = ecu_id
         self.username = username
         self.password = password
-        self.session = session
-        self.timeout = timeout
+        self.verify_ssl = verify_ssl
+        # Use separate connect/read timeouts for better handling of poor connections
+        # Connect timeout is fixed (fail fast if unreachable)
+        # Read timeout is configurable via config flow
+        self._request_timeout = (DEFAULT_CONNECT_TIMEOUT, read_timeout)
 
         # For backward compatibility
         self.resource = resources[0] if resources else ""
 
+        # Track if first refresh has completed (for verbose logging on first call only)
+        self._first_refresh_done = False
+
+        # Store hass reference for session access
+        self._hass = hass
+
+        # Schedule fetch counter - only fetch every Nth EMS update to reduce load
+        self._update_count = 0
+        self._schedule_fetch_interval = SCHEDULE_FETCH_INTERVAL
+
+        # Cached schedule data to use between fetches
+        self._cached_schedule_data: dict[str, Any] = {
+            "entries": [],
+            "count": 0,
+            "current_id": None,
+        }
+
         super().__init__(hass, logger, name=DOMAIN, update_interval=update_interval)
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        """Get the aiohttp session from Home Assistant."""
+        return async_get_clientsession(self._hass, verify_ssl=self.verify_ssl)
+
+    @property
+    def _auth(self) -> aiohttp.BasicAuth | None:
+        """Get auth object if credentials are configured."""
+        if self.username and self.password:
+            return aiohttp.BasicAuth(self.username, self.password)
+        return None
+
+    def _build_url(self, host: str, path: str = "") -> str:
+        """Build a URL ensuring the protocol prefix is present."""
+        if host.startswith(("http://", "https://")):
+            base_url = host
+        else:
+            base_url = f"http://{host}"
+        return f"{base_url}{path}"
+
+    def _get_timeout(self) -> aiohttp.ClientTimeout:
+        """Get timeout configuration for aiohttp."""
+        connect_timeout, read_timeout = self._request_timeout
+        return aiohttp.ClientTimeout(
+            total=None,
+            connect=connect_timeout,
+            sock_read=read_timeout,
+        )
+
+    async def _async_get(
+        self, url: str, auth: aiohttp.BasicAuth | None
+    ) -> dict[str, Any]:
+        """GET request with retry logic."""
+        session = self._get_session()
+        timeout = self._get_timeout()
+        last_error: Exception | None = None
+
+        for attempt in range(RETRY_COUNT + 1):
+            try:
+                async with session.get(url, auth=auth, timeout=timeout) as resp:
+                    if resp.status in RETRY_STATUS_CODES and attempt < RETRY_COUNT:
+                        # Retry on specific status codes
+                        await asyncio.sleep(RETRY_BACKOFF_FACTOR * (2**attempt))
+                        continue
+                    if resp.status != 200:
+                        raise UpdateFailed(
+                            f"Error communicating with API: {resp.status}"
+                        )
+                    return await resp.json()
+            except (TimeoutError, aiohttp.ClientError) as err:
+                last_error = err
+                if attempt < RETRY_COUNT:
+                    await asyncio.sleep(RETRY_BACKOFF_FACTOR * (2**attempt))
+                    continue
+                raise
+
+        # Should not reach here, but just in case
+        raise UpdateFailed(f"Request failed after retries: {last_error}")
+
+    async def _async_post(
+        self, url: str, data: dict[str, str], auth: aiohttp.BasicAuth | None
+    ) -> str:
+        """POST request with retry logic."""
+        session = self._get_session()
+        timeout = self._get_timeout()
+        last_error: Exception | None = None
+
+        for attempt in range(RETRY_COUNT + 1):
+            try:
+                async with session.post(
+                    url, data=data, auth=auth, timeout=timeout
+                ) as resp:
+                    if resp.status in RETRY_STATUS_CODES and attempt < RETRY_COUNT:
+                        # Retry on specific status codes
+                        await asyncio.sleep(RETRY_BACKOFF_FACTOR * (2**attempt))
+                        continue
+                    if resp.status != 200:
+                        raise UpdateFailed(
+                            f"Error communicating with API: {resp.status}"
+                        )
+                    return await resp.text()
+            except (TimeoutError, aiohttp.ClientError) as err:
+                last_error = err
+                if attempt < RETRY_COUNT:
+                    await asyncio.sleep(RETRY_BACKOFF_FACTOR * (2**attempt))
+                    continue
+                raise
+
+        # Should not reach here, but just in case
+        raise UpdateFailed(f"Request failed after retries: {last_error}")
 
     def get_main_device_id(self) -> str:
         """Get the main device identifier for unique ID generation.
@@ -85,18 +205,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
     async def _fetch_resource_data(self, resource: str) -> dict[str, Any]:
         """Fetch data from a single resource."""
         try:
-            async with async_timeout.timeout(self.timeout):
-                # Only use authentication if both username and password are provided
-                auth = None
-                if self.username and self.password:
-                    auth = aiohttp.BasicAuth(self.username, self.password)
-
-                async with self.session.get(resource, auth=auth) as resp:
-                    if resp.status != 200:
-                        raise UpdateFailed(
-                            f"Error communicating with API: {resp.status}"
-                        )
-                    return await resp.json()
+            return await self._async_get(resource, self._auth)
         except TimeoutError as error:
             raise UpdateFailed(
                 f"Timeout error fetching data from {resource}: {error}"
@@ -108,37 +217,14 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
 
     async def _fetch_schedule_data(self) -> dict[str, Any]:
         """Fetch schedule data from the main host."""
-        # Ensure URL has protocol
-        if self.main_host.startswith(("http://", "https://")):
-            base_url = self.main_host
-        else:
-            base_url = f"http://{self.main_host}"
-        url = f"{base_url}{CONSOLE_RESOURCE_PATH}"
-        command = "sched_list"
+        url = self._build_url(self.main_host, CONSOLE_RESOURCE_PATH)
         schedule_info: dict[str, Any] = {}
 
         try:
-            async with async_timeout.timeout(self.timeout):
-                form_data = aiohttp.FormData()
-                form_data.add_field("cmd", command)
-                auth = (
-                    aiohttp.BasicAuth(self.username, self.password)
-                    if self.username and self.password
-                    else None
-                )
-
-                async with self.session.post(
-                    url, data=form_data, auth=auth
-                ) as response:
-                    if response.status != 200:
-                        self.logger.error(
-                            "Failed to fetch schedule data. Status: %s",
-                            response.status,
-                        )
-                        return {}
-
-                    response_text = await response.text()
-                    schedule_info = self._parse_schedule_data(response_text)
+            response_text = await self._async_post(
+                url, {"cmd": "sched_list"}, self._auth
+            )
+            schedule_info = self._parse_schedule_data(response_text)
 
         except TimeoutError:
             self.logger.error("Timeout fetching schedule data from %s", url)
@@ -223,79 +309,208 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         if not self.resources:
             raise UpdateFailed("No resources configured")
 
-        # Fetch sensor and schedule data in parallel
+        # Fetch EMS data from all hosts
+        valid_results = await self._fetch_all_ems_data()
+        if not valid_results:
+            raise UpdateFailed("Failed to fetch data from any resource")
+
+        # Get schedule data (may use cache)
+        self._update_count += 1
+        schedule_data = await self._get_schedule_data_with_cache()
+
+        # Find main system data and merge
+        verbose_log = self._should_log_verbose(len(valid_results))
+        main_data, main_data_host = self._find_main_data(valid_results, verbose_log)
+
+        if verbose_log:
+            self._log_debug_info(
+                valid_results, schedule_data, main_data, main_data_host
+            )
+
+        # Merge and build final data
+        merged_dict_data = self._merge_data(
+            valid_results, main_data, main_data_host, verbose_log
+        )
+        merged_dict_data["schedules"] = schedule_data.get("entries", [])
+        merged_dict_data["schedule_count"] = schedule_data.get("count")
+        merged_dict_data["schedule_current_id"] = schedule_data.get("current_id")
+
+        self._first_refresh_done = True
+        return HomevoltData.from_dict(merged_dict_data)
+
+    async def _fetch_all_ems_data(self) -> list[tuple[str, dict[str, Any]]]:
+        """Fetch EMS data from all configured hosts in parallel."""
+        if not self.resources:
+            return []
+
+        # Fetch all hosts in parallel for better performance
         tasks = [self._fetch_resource_data(resource) for resource in self.resources]
-        tasks.append(self._fetch_schedule_data())
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Separate schedule data from sensor data results
-        schedule_result = results.pop()
-        schedule_data: dict[str, Any]
-        if isinstance(schedule_result, Exception):
-            self.logger.error("Error fetching schedule data: %s", schedule_result)
-            schedule_data = {
-                "entries": [],
-                "count": 0,
-                "current_id": None,
-            }
-        elif isinstance(schedule_result, dict):
-            schedule_data = schedule_result
-        else:
-            schedule_data = {"entries": [], "count": 0, "current_id": None}
-
-        # Process the sensor data results
         valid_results: list[tuple[str, dict[str, Any]]] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                self.logger.error(
+                self.logger.warning(
                     "Error fetching data from %s: %s", self.resources[i], result
                 )
             elif isinstance(result, dict):
                 valid_results.append((self.hosts[i], result))
 
-        if not valid_results:
-            raise UpdateFailed("Failed to fetch data from any resource")
+        return valid_results
 
-        # Find the main system's data
-        main_data = None
+    async def _get_schedule_data_with_cache(self) -> dict[str, Any]:
+        """Get schedule data, fetching fresh data periodically or using cache."""
+        should_fetch = (
+            self._update_count == 1
+            or self._update_count % self._schedule_fetch_interval == 0
+        )
+
+        if should_fetch:
+            try:
+                schedule_data = await self._fetch_schedule_data()
+                self._cached_schedule_data = schedule_data
+                return schedule_data
+            except Exception as err:
+                self.logger.error("Error fetching schedule data: %s", err)
+
+        return self._cached_schedule_data
+
+    def _should_log_verbose(self, result_count: int) -> bool:
+        """Determine if verbose debug logging should be enabled."""
+        return not self._first_refresh_done or result_count > 1
+
+    def _find_main_data(
+        self,
+        valid_results: list[tuple[str, dict[str, Any]]],
+        verbose_log: bool,
+    ) -> tuple[dict[str, Any], str]:
+        """Find the main system's data from results, with fallback to first result."""
         for host, data in valid_results:
             if host == self.main_host:
-                main_data = data
-                break
+                return data, host
 
-        # If main system's data is not available, use the first valid result
-        if main_data is None:
-            self.logger.warning(
-                "Main system data not available, using first valid result"
-            )
-            main_data = valid_results[0][1]
+        # Fallback to first valid result
+        self.logger.warning(
+            "Main system data not available (main_host=%s not in %s), "
+            "using first valid result from %s",
+            self.main_host,
+            [host for host, _ in valid_results],
+            valid_results[0][0],
+        )
+        return valid_results[0][1], valid_results[0][0]
 
-        # Merge data from all systems
-        merged_dict_data = self._merge_data(valid_results, main_data)
+    def _log_debug_info(
+        self,
+        valid_results: list[tuple[str, dict[str, Any]]],
+        schedule_data: dict[str, Any],
+        main_data: dict[str, Any],
+        main_data_host: str,
+    ) -> None:
+        """Log debug information about the update."""
+        entries = schedule_data.get("entries", [])
+        self.logger.debug(
+            "Schedule data: count=%s, current_id=%s, entries=%d",
+            schedule_data.get("count"),
+            schedule_data.get("current_id"),
+            len(entries),
+        )
+        self.logger.debug(
+            "Valid results from %d hosts: %s (main_host=%s)",
+            len(valid_results),
+            [host for host, _ in valid_results],
+            self.main_host,
+        )
+        self.logger.debug(
+            "Using main_data from host=%s, ems_count=%d, sensor_count=%d",
+            main_data_host,
+            len(main_data.get(ATTR_EMS, [])),
+            len(main_data.get(ATTR_SENSORS, [])),
+        )
 
-        # Add schedule data to the merged data
-        merged_dict_data["schedules"] = schedule_data.get("entries", [])
-        merged_dict_data["schedule_count"] = schedule_data.get("count")
-        merged_dict_data["schedule_current_id"] = schedule_data.get("current_id")
+    def _deduplicate_ems_list(
+        self, ems_list: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Deduplicate EMS devices based on ecu_id."""
+        seen_ecu_ids: set[Any] = set()
+        result: list[dict[str, Any]] = []
+        for ems in ems_list:
+            ecu_id = ems.get(ATTR_ECU_ID)
+            if ecu_id is not None:
+                if ecu_id not in seen_ecu_ids:
+                    seen_ecu_ids.add(ecu_id)
+                    result.append(ems)
+            else:
+                # If no ecu_id, just add it (can't deduplicate)
+                result.append(ems)
+        return result
 
-        # Convert the merged dictionary data to a HomevoltData object
-        return HomevoltData.from_dict(merged_dict_data)
+    def _deduplicate_sensor_list(
+        self, sensor_list: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Deduplicate sensors based on euid and type."""
+        seen_keys: set[tuple[Any, Any]] = set()
+        seen_euids: set[Any] = set()
+        result: list[dict[str, Any]] = []
+        for sensor in sensor_list:
+            euid = sensor.get(ATTR_EUID)
+            sensor_type = sensor.get(ATTR_TYPE)
+            if euid and sensor_type:
+                key = (euid, sensor_type)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    result.append(sensor)
+            elif euid:
+                if euid not in seen_euids:
+                    seen_euids.add(euid)
+                    result.append(sensor)
+            else:
+                # If no euid, just add it (can't deduplicate)
+                result.append(sensor)
+        return result
 
     def _merge_data(
-        self, results: list[tuple[str, dict[str, Any]]], main_data: dict[str, Any]
+        self,
+        results: list[tuple[str, dict[str, Any]]],
+        main_data: dict[str, Any],
+        main_data_host: str | None = None,
+        verbose_log: bool = False,
     ) -> dict[str, Any]:
         """Merge data from multiple systems."""
+        # Use main_data_host if provided (handles fallback case),
+        # otherwise use self.main_host
+        skip_host = main_data_host if main_data_host else self.main_host
+
         # Start with the main system's data
         merged_data = dict(main_data)
 
         # Collect all EMS devices and sensors from all systems
-        all_ems = merged_data.get(ATTR_EMS, [])[:]
-        all_sensors = merged_data.get(ATTR_SENSORS, [])[:]
+        # Deduplicate main host data first (API may return duplicates)
+        all_ems = self._deduplicate_ems_list(merged_data.get(ATTR_EMS, []))
+        all_sensors = self._deduplicate_sensor_list(merged_data.get(ATTR_SENSORS, []))
+
+        if verbose_log:
+            self.logger.debug(
+                "Merge starting: skip_host=%s, initial ems=%d, initial sensors=%d",
+                skip_host,
+                len(all_ems),
+                len(all_sensors),
+            )
 
         for host, data in results:
-            # Skip the main host's data (already used to initialize merged_data)
-            if host == self.main_host:
+            # Skip the host whose data was used to initialize merged_data
+            if host == skip_host:
+                if verbose_log:
+                    self.logger.debug("Skipping host %s (main data source)", host)
                 continue
+
+            if verbose_log:
+                self.logger.debug(
+                    "Processing host %s: ems=%d, sensors=%d",
+                    host,
+                    len(data.get(ATTR_EMS, [])),
+                    len(data.get(ATTR_SENSORS, [])),
+                )
+
             # Add EMS devices
             if ATTR_EMS in data:
                 for ems in data[ATTR_EMS]:
@@ -334,5 +549,20 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         # Update the merged data with all EMS devices and sensors
         merged_data[ATTR_EMS] = all_ems
         merged_data[ATTR_SENSORS] = all_sensors
+
+        if verbose_log:
+            self.logger.debug(
+                "Merge complete: final ems=%d, final sensors=%d",
+                len(all_ems),
+                len(all_sensors),
+            )
+
+            # Debug: log sensor details for troubleshooting duplicates
+            if all_sensors:
+                sensor_summary = [
+                    f"{s.get(ATTR_TYPE)}:{s.get(ATTR_EUID, 'no-euid')}"
+                    for s in all_sensors
+                ]
+                self.logger.debug("Merged sensors: %s", sensor_summary)
 
         return merged_data

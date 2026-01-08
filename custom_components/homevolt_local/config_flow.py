@@ -28,8 +28,8 @@ from .const import (
     CONF_MAIN_HOST,
     CONF_MDNS_ID,
     CONF_RESOURCES,
+    DEFAULT_READ_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_TIMEOUT,
     DOMAIN,
     EMS_RESOURCE_PATH,
 )
@@ -48,7 +48,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_PASSWORD, default=""): str,
         vol.Optional(CONF_VERIFY_SSL, default=False): bool,
         vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
-        vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): int,
+        vol.Optional(CONF_TIMEOUT, default=DEFAULT_READ_TIMEOUT): int,
     }
 )
 
@@ -65,6 +65,8 @@ STEP_ZEROCONF_CONFIRM_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_PASSWORD, default=""): str,
         vol.Optional(CONF_VERIFY_SSL, default=False): bool,
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_TIMEOUT, default=DEFAULT_READ_TIMEOUT): int,
     }
 )
 
@@ -85,6 +87,10 @@ class DuplicateHost(Exception):
     """Error to indicate the host is already in the list."""
 
 
+class MissingDeviceId(Exception):
+    """Error to indicate the device did not return an ecu_id."""
+
+
 def is_valid_host(host: str) -> bool:
     """Check if the host is valid."""
     # Simple validation: host should not be empty and should not contain spaces
@@ -102,22 +108,28 @@ def construct_resource_url(host: str) -> str:
 
 
 async def try_connect(
-    session: aiohttp.ClientSession,
+    hass: HomeAssistant,
     url: str,
     auth: aiohttp.BasicAuth | None,
+    verify_ssl: bool = True,
 ) -> tuple[bool, int, dict[str, Any] | None]:
-    """Try to connect to a URL and return success status, HTTP status, and data."""
+    """Try to connect to a URL asynchronously.
+
+    Returns success status, HTTP status, and data.
+    """
     try:
+        session = async_get_clientsession(hass, verify_ssl=verify_ssl)
         timeout = aiohttp.ClientTimeout(total=10)
         async with session.get(url, auth=auth, timeout=timeout) as response:
-            if response.status == 200:
+            status_code = response.status
+            if status_code == 200:
                 try:
                     data = await response.json()
-                    return True, response.status, data
+                    return True, status_code, data
                 except ValueError:
-                    return False, response.status, None
-            return False, response.status, None
-    except (TimeoutError, aiohttp.ClientError):
+                    return False, status_code, None
+            return False, status_code, None
+    except (aiohttp.ClientError, TimeoutError):
         return False, 0, None
 
 
@@ -164,7 +176,6 @@ async def validate_host(
                 )
 
     # Try to connect
-    session = async_get_clientsession(hass, verify_ssl=verify_ssl)
     auth = aiohttp.BasicAuth(username, password) if username and password else None
 
     working_host = None
@@ -173,7 +184,7 @@ async def validate_host(
 
     for url in urls_to_try:
         resource_url = construct_resource_url(url)
-        success, status, data = await try_connect(session, resource_url, auth)
+        success, status, data = await try_connect(hass, resource_url, auth, verify_ssl)
         last_status = status
 
         if status == 401:
@@ -197,10 +208,17 @@ async def validate_host(
         )
 
     # Extract ecu_id from the first EMS device for stable identification
+    # ecu_id is REQUIRED - without it we cannot guarantee unique identification
     ecu_id = None
     ems_list = response_data.get("ems", [])
     if ems_list and len(ems_list) > 0:
         ecu_id = ems_list[0].get("ecu_id")
+
+    if not ecu_id:
+        raise MissingDeviceId(
+            f"Device at {host} did not return an ecu_id. "
+            "This is required for stable device identification."
+        )
 
     # Return the host (with working protocol), resource URL, and ecu_id
     return {
@@ -256,7 +274,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
         self.password: str | None = None
         self.verify_ssl: bool = True
         self.scan_interval: int = DEFAULT_SCAN_INTERVAL
-        self.timeout: int = DEFAULT_TIMEOUT
+        self.timeout: int = DEFAULT_READ_TIMEOUT
 
     @staticmethod
     @callback
@@ -281,7 +299,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
                 self.scan_interval = user_input.get(
                     CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                 )
-                self.timeout = user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+                self.timeout = user_input.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
 
                 # Validate the first host
                 host_info = await validate_host(
@@ -305,12 +323,15 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
                 return await self.async_step_add_host()
 
             except (ConfigEntryNotReady, CannotConnect) as err:
-                _LOGGER.exception("Connection exception: %s", err)
+                _LOGGER.debug("Connection failed: %s", err)
                 errors["base"] = "cannot_connect"
             except (ConfigEntryAuthFailed, InvalidAuth):
                 errors["base"] = "invalid_auth"
             except InvalidResource:
                 errors["base"] = "invalid_resource"
+            except MissingDeviceId as err:
+                _LOGGER.error("Device missing ecu_id: %s", err)
+                errors["base"] = "missing_device_id"
             except Exception as err:
                 _LOGGER.exception("Unexpected exception: %s", err)
                 errors["base"] = "unknown"
@@ -362,6 +383,9 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
                 errors["base"] = "invalid_resource"
             except DuplicateHost:
                 errors["base"] = "duplicate_host"
+            except MissingDeviceId as err:
+                _LOGGER.error("Device missing ecu_id: %s", err)
+                errors["base"] = "missing_device_id"
             except Exception as err:
                 _LOGGER.exception("Unexpected exception: %s", err)
                 errors["base"] = "unknown"
@@ -408,9 +432,28 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the confirm step."""
+        errors: dict[str, str] = {}
+
+        # ecu_id is required - validate_host ensures it's always available
+        # However, this can be None if select_main failed to find the index
+        if not self.main_ecu_id:
+            _LOGGER.error(
+                "No ecu_id available for main host %s. "
+                "This may indicate a configuration flow error.",
+                self.main_host,
+            )
+            errors["base"] = "missing_device_id"
+            # Show the form with an error instead of silently aborting
+            # This gives the user a chance to see what went wrong
+            hosts_str = ", ".join(self.hosts)
+            return self.async_show_form(
+                step_id="confirm",
+                description_placeholders={"hosts": hosts_str},
+                errors=errors,
+            )
+
         if user_input is not None:
-            # Use ecu_id as unique identifier if available, otherwise fall back to host
-            unique_id = str(self.main_ecu_id) if self.main_ecu_id else self.main_host
+            unique_id = str(self.main_ecu_id)
 
             # Check if already configured
             await self.async_set_unique_id(unique_id)
@@ -534,6 +577,9 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
                     errors["base"] = "invalid_auth"
                 except (ConfigEntryNotReady, CannotConnect):
                     errors["base"] = "cannot_connect"
+                except MissingDeviceId as err:
+                    _LOGGER.error("Device missing ecu_id: %s", err)
+                    errors["base"] = "missing_device_id"
                 except Exception:
                     _LOGGER.exception("Unexpected error during validation")
                     errors["base"] = "unknown"
@@ -559,7 +605,7 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
                     CONF_PASSWORD: password,
                     CONF_VERIFY_SSL: verify_ssl,
                     CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
-                    CONF_TIMEOUT: DEFAULT_TIMEOUT,
+                    CONF_TIMEOUT: DEFAULT_READ_TIMEOUT,
                 },
             )
 
@@ -631,7 +677,7 @@ class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_SCAN_INTERVAL: user_input.get(
                         CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                     ),
-                    CONF_TIMEOUT: user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+                    CONF_TIMEOUT: user_input.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT),
                 }
 
                 # Update config entry data
@@ -652,6 +698,9 @@ class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
                 errors["base"] = "invalid_auth"
             except InvalidResource:
                 errors["base"] = "invalid_resource"
+            except MissingDeviceId as err:
+                _LOGGER.error("Device missing ecu_id: %s", err)
+                errors["base"] = "missing_device_id"
             except Exception as err:
                 _LOGGER.exception("Unexpected exception: %s", err)
                 errors["base"] = "unknown"
@@ -664,7 +713,7 @@ class HomevoltOptionsFlowHandler(config_entries.OptionsFlow):
         current_scan_interval = self.config_entry.data.get(
             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
         )
-        current_timeout = self.config_entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+        current_timeout = self.config_entry.data.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
 
         options_schema = vol.Schema(
             {
