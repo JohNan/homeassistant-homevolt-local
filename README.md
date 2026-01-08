@@ -1,6 +1,6 @@
 # Homevolt Local Integration for Home Assistant
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 [![GitHub Latest Release](https://img.shields.io/github/release/JohNan/homeassistant-homevolt-local.svg?style=for-the-badge&color=blue)](https://github.com/JohNan/homeassistant-homevolt-local/releases)
 [![GitHub All Releases](https://img.shields.io/github/downloads/JohNan/homeassistant-homevolt-local/total.svg?style=for-the-badge&color=blue)](https://github.com/JohNan/homeassistant-homevolt-local/releases)
 [![Tests](https://img.shields.io/github/actions/workflow/status/JohNan/homeassistant-homevolt-local/ci.yml?branch=main&style=for-the-badge&label=Tests)](https://github.com/JohNan/homeassistant-homevolt-local/actions/workflows/ci.yml)
@@ -20,12 +20,8 @@ This is a custom integration for Home Assistant that connects to a Homevolt Ener
 ### HACS (Recommended)
 
 1. Make sure [HACS](https://hacs.xyz/) is installed in your Home Assistant instance
-2. Add this repository as a custom repository in HACS:
-   - Go to HACS > Integrations
-   - Click the three dots in the top right corner
-   - Select "Custom repositories"
-   - Add the URL of this repository and select "Integration" as the category
-3. Click "Install" on the Homevolt Local integration
+2. Go to HACS > Integrations
+3. Search for "Homevolt Local" and click "Download"
 4. Restart Home Assistant
 
 ### Manual Installation
