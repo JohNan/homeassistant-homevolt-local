@@ -27,6 +27,7 @@ from .const import (
     CONF_MAIN_HOST,
     CONF_RESOURCE,
     CONF_RESOURCES,
+    DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_READ_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -222,6 +223,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             username = (config_entry.data.get(CONF_USERNAME) or "").strip() or None
             password = (config_entry.data.get(CONF_PASSWORD) or "").strip() or None
             verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
+            read_timeout = config_entry.data.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
 
             if not host:
                 _LOGGER.error("No host found for device %s", device_id)
@@ -244,9 +246,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     if username and password
                     else None
                 )
+                timeout = aiohttp.ClientTimeout(
+                    connect=DEFAULT_CONNECT_TIMEOUT, sock_read=read_timeout
+                )
                 session = async_get_clientsession(hass, verify_ssl=verify_ssl)
                 async with session.post(
-                    url, data={"cmd": command}, auth=auth
+                    url, data={"cmd": command}, auth=auth, timeout=timeout
                 ) as response:
                     response_text = await response.text()
                     if response.status == 200:
@@ -260,6 +265,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             response.status,
                             response_text,
                         )
+            except TimeoutError:
+                _LOGGER.error("Timeout sending command to %s", host)
             except aiohttp.ClientError as e:
                 _LOGGER.error("Error sending command to %s: %s", host, e)
 
