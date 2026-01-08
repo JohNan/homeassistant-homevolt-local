@@ -9,8 +9,16 @@ CONF_HOSTS = "hosts"
 CONF_MAIN_HOST = "main_host"
 CONF_RESOURCES = "resources"
 CONF_ADD_ANOTHER = "add_another"
-DEFAULT_SCAN_INTERVAL = 30
-DEFAULT_TIMEOUT = 10
+DEFAULT_SCAN_INTERVAL = 45
+# Separate timeouts for better handling of poor connections
+# Connect timeout: how long to wait to establish connection (fail fast if unreachable)
+# Read timeout: how long to wait for response data (more patience for slow devices)
+DEFAULT_CONNECT_TIMEOUT = 5
+DEFAULT_READ_TIMEOUT = 20
+
+# Schedule data is fetched every Nth EMS update to reduce load
+SCHEDULE_FETCH_INTERVAL = 4
+
 EMS_RESOURCE_PATH = "/ems.json"
 CONSOLE_RESOURCE_PATH = "/console.json"
 

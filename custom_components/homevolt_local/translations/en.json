@@ -97,10 +97,13 @@
       "invalid_auth": "Invalid authentication",
       "invalid_resource": "Invalid IP or hostname format",
       "duplicate_host": "This IP address or hostname is already in the list",
+      "missing_device_id": "Device did not return a valid identifier (ecu_id). Please try again or check your device.",
       "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "A Homevolt Local integration with one of these systems is already configured"
+      "already_configured": "A Homevolt Local integration with one of these systems is already configured",
+      "not_homevolt": "Discovered device is not a Homevolt device",
+      "missing_device_id": "Device did not return a valid identifier"
     }
   },
   "options": {
@@ -121,6 +124,7 @@
       "cannot_connect": "Failed to connect to the address",
       "invalid_auth": "Invalid authentication",
       "invalid_resource": "Invalid IP or hostname format",
+      "missing_device_id": "Device did not return a valid identifier (ecu_id). Please try again or check your device.",
       "unknown": "Unexpected error"
     }
   }
