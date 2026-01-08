@@ -432,13 +432,27 @@ class HomevoltConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ign
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the confirm step."""
-        if user_input is not None:
-            # ecu_id is required - validate_host ensures it's always available
-            if not self.main_ecu_id:
-                # This shouldn't happen as validate_host raises MissingDeviceId
-                _LOGGER.error("No ecu_id available - this should not happen")
-                return self.async_abort(reason="missing_device_id")
+        errors: dict[str, str] = {}
 
+        # ecu_id is required - validate_host ensures it's always available
+        # However, this can be None if select_main failed to find the index
+        if not self.main_ecu_id:
+            _LOGGER.error(
+                "No ecu_id available for main host %s. "
+                "This may indicate a configuration flow error.",
+                self.main_host,
+            )
+            errors["base"] = "missing_device_id"
+            # Show the form with an error instead of silently aborting
+            # This gives the user a chance to see what went wrong
+            hosts_str = ", ".join(self.hosts)
+            return self.async_show_form(
+                step_id="confirm",
+                description_placeholders={"hosts": hosts_str},
+                errors=errors,
+            )
+
+        if user_input is not None:
             unique_id = str(self.main_ecu_id)
 
             # Check if already configured
