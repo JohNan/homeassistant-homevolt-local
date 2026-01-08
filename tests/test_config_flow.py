@@ -102,12 +102,12 @@ async def test_config_flow_cannot_connect(
         mock_session = MagicMock()
         mock_get_session.return_value = mock_session
 
-        # Mock connection failure
+        # Mock connection failure (response as async context manager)
         mock_response = AsyncMock()
         mock_response.status = 500
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_response
+        mock_session.get = MagicMock(return_value=mock_response)
 
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -137,12 +137,12 @@ async def test_config_flow_invalid_auth(
         mock_session = MagicMock()
         mock_get_session.return_value = mock_session
 
-        # Mock 401 response
+        # Mock 401 response (as async context manager)
         mock_response = AsyncMock()
         mock_response.status = 401
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_response
+        mock_session.get = MagicMock(return_value=mock_response)
 
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -191,17 +191,25 @@ async def test_config_flow_auto_protocol_detection(
     """Test that config flow auto-detects HTTP/HTTPS protocol."""
     with patch(
         "custom_components.homevolt_local.config_flow.async_get_clientsession"
-    ) as mock_get_session:
+    ) as mock_session_class:
         mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
+        mock_session_class.return_value = mock_session
 
         # Mock successful response - validates protocol auto-detection
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value=mock_api_response)
+
+        get_calls: list[str] = []
+
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_response
+
+        def mock_get_side_effect(url, *args, **kwargs):
+            get_calls.append(url)
+            return mock_response
+
+        mock_session.get = MagicMock(side_effect=mock_get_side_effect)
 
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -222,8 +230,7 @@ async def test_config_flow_auto_protocol_detection(
         assert result["step_id"] == "add_host"
 
         # The session should have been called with http:// prefix first
-        calls = mock_session.get.call_args_list
-        assert any("http://192.168.1.100" in str(call) for call in calls)
+        assert any("http://192.168.1.100" in call for call in get_calls)
 
 
 async def test_zeroconf_discovery_creates_entry(
@@ -236,17 +243,18 @@ async def test_zeroconf_discovery_creates_entry(
 
     with patch(
         "custom_components.homevolt_local.config_flow.async_get_clientsession"
-    ) as mock_get_session:
+    ) as mock_session_class:
         mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
+        mock_session_class.return_value = mock_session
 
         # Mock successful response
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value=mock_api_response)
+
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_response
+        mock_session.get = MagicMock(return_value=mock_response)
 
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -280,9 +288,9 @@ async def test_zeroconf_requires_auth_prompts_for_credentials(
 
     with patch(
         "custom_components.homevolt_local.config_flow.async_get_clientsession"
-    ) as mock_get_session:
+    ) as mock_session_class:
         mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
+        mock_session_class.return_value = mock_session
 
         # Discovery goes straight to confirm form (no validation)
         # First call during confirm with credentials returns 401 (wrong creds)
@@ -298,7 +306,19 @@ async def test_zeroconf_requires_auth_prompts_for_credentials(
         mock_response_200.__aenter__ = AsyncMock(return_value=mock_response_200)
         mock_response_200.__aexit__ = AsyncMock(return_value=None)
 
-        mock_session.get.side_effect = [mock_response_401, mock_response_200]
+        responses = [mock_response_401, mock_response_200]
+        call_count = [0]
+
+        def mock_get(*args, **kwargs):
+            resp = (
+                responses[call_count[0]]
+                if call_count[0] < len(responses)
+                else responses[-1]
+            )
+            call_count[0] += 1
+            return resp
+
+        mock_session.get = mock_get
 
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -402,16 +422,16 @@ async def test_zeroconf_extracts_mdns_id_from_hostname(
 
     with patch(
         "custom_components.homevolt_local.config_flow.async_get_clientsession"
-    ) as mock_get_session:
+    ) as mock_session_class:
         mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
+        mock_session_class.return_value = mock_session
 
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(return_value=mock_api_response)
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_response
+        mock_session.get = MagicMock(return_value=mock_response)
 
         result = await hass.config_entries.flow.async_init(
             DOMAIN,

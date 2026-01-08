@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
@@ -55,21 +55,27 @@ async def test_async_setup_entry_api_error(
     mock_config_entry: MockConfigEntry,
 ) -> None:
     """Test setup when API returns error."""
-    from unittest.mock import AsyncMock
+    mock_session = MagicMock()
+
+    # Mock error response (as async context manager)
+    mock_response = AsyncMock()
+    mock_response.status = 500
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get = MagicMock(return_value=mock_response)
+
+    # Mock POST response for schedule (as async context manager)
+    mock_post_response = AsyncMock()
+    mock_post_response.status = 500
+    mock_post_response.text = AsyncMock(return_value="")
+    mock_post_response.__aenter__ = AsyncMock(return_value=mock_post_response)
+    mock_post_response.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post = MagicMock(return_value=mock_post_response)
 
     with patch(
-        "custom_components.homevolt_local.async_get_clientsession"
-    ) as mock_get_session:
-        mock_session = MagicMock()
-        mock_get_session.return_value = mock_session
-
-        # Mock error response
-        mock_response = AsyncMock()
-        mock_response.status = 500
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
-        mock_session.get.return_value = mock_response
-
+        "custom_components.homevolt_local.coordinator.async_get_clientsession",
+        return_value=mock_session,
+    ):
         mock_config_entry.add_to_hass(hass)
         await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
