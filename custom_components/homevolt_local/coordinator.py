@@ -21,6 +21,7 @@ from .const import (
     ATTR_EMS,
     ATTR_EUID,
     ATTR_SENSORS,
+    ATTR_TYPE,
     CONSOLE_RESOURCE_PATH,
     DOMAIN,
 )
@@ -60,6 +61,26 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         self.resource = resources[0] if resources else ""
 
         super().__init__(hass, logger, name=DOMAIN, update_interval=update_interval)
+
+    def get_main_device_id(self) -> str:
+        """Get the main device identifier for unique ID generation.
+
+        Uses ecu_id from config or data, with fallback to entry_id.
+        This provides a stable identifier that doesn't change when IP changes.
+        """
+        # First try to use ecu_id from config (stored in config entry)
+        if self.ecu_id:
+            return str(self.ecu_id)
+        # Then try to get it from the data
+        if self.data and self.data.ems:
+            try:
+                first_ems = self.data.ems[0]
+                if first_ems.ecu_id:
+                    return str(first_ems.ecu_id)
+            except (IndexError, AttributeError):
+                pass
+        # Fallback to entry_id which is stable across IP changes
+        return self.entry_id
 
     async def _fetch_resource_data(self, resource: str) -> dict[str, Any]:
         """Fetch data from a single resource."""
@@ -271,7 +292,10 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         all_ems = merged_data.get(ATTR_EMS, [])[:]
         all_sensors = merged_data.get(ATTR_SENSORS, [])[:]
 
-        for _, data in results:
+        for host, data in results:
+            # Skip the main host's data (already used to initialize merged_data)
+            if host == self.main_host:
+                continue
             # Add EMS devices
             if ATTR_EMS in data:
                 for ems in data[ATTR_EMS]:
@@ -287,9 +311,20 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             # Add sensors
             if ATTR_SENSORS in data:
                 for sensor in data[ATTR_SENSORS]:
-                    # Check if this sensor is already in the list (based on euid)
-                    if ATTR_EUID in sensor:
-                        euid = sensor[ATTR_EUID]
+                    # Check if sensor is already in list (based on euid AND type)
+                    # Using both because some sensors may have default/empty
+                    # euid values like "0000000000000000"
+                    euid = sensor.get(ATTR_EUID)
+                    sensor_type = sensor.get(ATTR_TYPE)
+                    if euid and sensor_type:
+                        # Check for duplicate by both euid and type
+                        if not any(
+                            s.get(ATTR_EUID) == euid and s.get(ATTR_TYPE) == sensor_type
+                            for s in all_sensors
+                        ):
+                            all_sensors.append(sensor)
+                    elif euid:
+                        # Fallback: if no type, just check euid
                         if not any(s.get(ATTR_EUID) == euid for s in all_sensors):
                             all_sensors.append(sensor)
                     else:
