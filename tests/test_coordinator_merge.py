@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -59,12 +59,6 @@ def get_mock_response(
         ],
         "sensors": sensors,
     }
-
-
-@pytest.fixture
-def mock_niquests_session() -> MagicMock:
-    """Create a mock niquests session fixture (not used directly, coordinator creates its own)."""
-    return MagicMock()
 
 
 async def test_single_host_no_duplicates(
