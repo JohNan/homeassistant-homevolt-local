@@ -296,8 +296,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_discharged",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-positive",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_data.energy_produced
@@ -311,8 +310,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_charged",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-negative",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_data.energy_consumed
@@ -359,8 +357,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-import",
         value_fn=lambda data: _normalize_energy_val(
             next(
@@ -382,8 +379,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-export",
         value_fn=lambda data: _normalize_energy_val(
             next(
@@ -451,8 +447,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant",
         value_fn=lambda data: _normalize_energy_val(
             next(
@@ -482,8 +477,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant-outline",
         value_fn=lambda data: _normalize_energy_val(
             next(
@@ -559,8 +553,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-import-outline",
         value_fn=lambda data: _normalize_energy_val(
             next(
@@ -582,8 +575,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-export-outline",
         value_fn=lambda data: _normalize_energy_val(
             next(
@@ -1099,8 +1091,7 @@ async def async_setup_entry(
                         translation_key="energy_discharged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL_INCREASING,
-                        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-                        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-positive",
                         value_fn=lambda data, i=idx: _normalize_energy_val(
                             data.ems[i].ems_data.energy_produced
@@ -1122,8 +1113,7 @@ async def async_setup_entry(
                         translation_key="energy_charged",
                         device_class=SensorDeviceClass.ENERGY,
                         state_class=SensorStateClass.TOTAL_INCREASING,
-                        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-                        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-negative",
                         value_fn=lambda data, i=idx: _normalize_energy_val(
                             data.ems[i].ems_data.energy_consumed
