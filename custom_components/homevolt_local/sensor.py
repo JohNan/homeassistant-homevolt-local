@@ -57,7 +57,10 @@ def _safe_float(value: Any) -> float | None:
 
 
 def _normalize_energy_val(value: Any) -> float | None:
-    """Return absolute energy value (or None if invalid)."""
+    """Return absolute energy value (or None if invalid).
+
+    For sensor data that is already in kWh (floats from the API).
+    """
     v = _safe_float(value)
     if v is None:
         return None
@@ -65,8 +68,33 @@ def _normalize_energy_val(value: Any) -> float | None:
 
 
 def _raw_energy_val(value: Any) -> float | None:
-    """Return raw (signed) energy value or None."""
+    """Return raw (signed) energy value or None.
+
+    For sensor data that is already in kWh (floats from the API).
+    """
     return _safe_float(value)
+
+
+def _normalize_ems_energy_val(value: Any) -> float | None:
+    """Return absolute EMS energy value converted from Wh to kWh.
+
+    EMS energy_produced/energy_consumed are reported in Wh (integers).
+    """
+    v = _safe_float(value)
+    if v is None:
+        return None
+    return abs(v) / 1000.0
+
+
+def _raw_ems_energy_val(value: Any) -> float | None:
+    """Return raw (signed) EMS energy value converted from Wh to kWh.
+
+    EMS energy_produced/energy_consumed are reported in Wh (integers).
+    """
+    v = _safe_float(value)
+    if v is None:
+        return None
+    return v / 1000.0
 
 
 def _rssi_icon(value: Any) -> str:
@@ -298,10 +326,10 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-positive",
-        value_fn=lambda data: _normalize_energy_val(
+        value_fn=lambda data: _normalize_ems_energy_val(
             data.aggregated.ems_data.energy_produced
         ),
-        raw_value_fn=lambda data: _raw_energy_val(
+        raw_value_fn=lambda data: _raw_ems_energy_val(
             data.aggregated.ems_data.energy_produced
         ),
     ),
@@ -312,10 +340,10 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:battery-negative",
-        value_fn=lambda data: _normalize_energy_val(
+        value_fn=lambda data: _normalize_ems_energy_val(
             data.aggregated.ems_data.energy_consumed
         ),
-        raw_value_fn=lambda data: _raw_energy_val(
+        raw_value_fn=lambda data: _raw_ems_energy_val(
             data.aggregated.ems_data.energy_consumed
         ),
     ),
@@ -1093,10 +1121,10 @@ async def async_setup_entry(
                         state_class=SensorStateClass.TOTAL_INCREASING,
                         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-positive",
-                        value_fn=lambda data, i=idx: _normalize_energy_val(
+                        value_fn=lambda data, i=idx: _normalize_ems_energy_val(
                             data.ems[i].ems_data.energy_produced
                         ),
-                        raw_value_fn=lambda data, i=idx: _raw_energy_val(
+                        raw_value_fn=lambda data, i=idx: _raw_ems_energy_val(
                             data.ems[i].ems_data.energy_produced
                         ),
                         device_specific=True,
@@ -1115,10 +1143,10 @@ async def async_setup_entry(
                         state_class=SensorStateClass.TOTAL_INCREASING,
                         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-negative",
-                        value_fn=lambda data, i=idx: _normalize_energy_val(
+                        value_fn=lambda data, i=idx: _normalize_ems_energy_val(
                             data.ems[i].ems_data.energy_consumed
                         ),
-                        raw_value_fn=lambda data, i=idx: _raw_energy_val(
+                        raw_value_fn=lambda data, i=idx: _raw_ems_energy_val(
                             data.ems[i].ems_data.energy_consumed
                         ),
                         device_specific=True,
