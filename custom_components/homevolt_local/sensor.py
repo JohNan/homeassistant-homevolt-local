@@ -298,12 +298,12 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         value_fn=lambda data: data.aggregated.ems_data.power,
     ),
     HomevoltSensorEntityDescription(
-        key="energy_discharged",
-        translation_key="energy_discharged",
+        key="energy_exported",
+        translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        icon="mdi:battery-positive",
+        icon="mdi:export",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_aggregate.exported_kwh
         ),
@@ -312,12 +312,12 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         ),
     ),
     HomevoltSensorEntityDescription(
-        key="energy_charged",
-        translation_key="energy_charged",
+        key="energy_imported",
+        translation_key="energy_imported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        icon="mdi:battery-negative",
+        icon="mdi:import",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_aggregate.imported_kwh
         ),
@@ -325,7 +325,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
             data.aggregated.ems_aggregate.imported_kwh
         ),
     ),
-    # Legacy energy sensors using ems_data (Wh values) - kept for historic data
     HomevoltSensorEntityDescription(
         key="energy_produced",
         translation_key="energy_produced",
