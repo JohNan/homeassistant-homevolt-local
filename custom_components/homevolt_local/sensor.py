@@ -331,7 +331,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        icon="mdi:battery-positive",
+        icon="mdi:battery-arrow-up",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_data.energy_produced
         ),
@@ -345,7 +345,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        icon="mdi:battery-negative",
+        icon="mdi:battery-arrow-down",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_data.energy_consumed
         ),
