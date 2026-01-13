@@ -303,7 +303,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        icon="mdi:export",
+        icon="mdi:home-export-outline",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_aggregate.exported_kwh
         ),
@@ -317,7 +317,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        icon="mdi:import",
+        icon="mdi:home-import-outline",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_aggregate.imported_kwh
         ),
