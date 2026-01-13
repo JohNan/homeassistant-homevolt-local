@@ -58,15 +58,15 @@ async def test_sensor_soc_entity_exists(
     assert state.attributes.get("unit_of_measurement") == "%"
 
 
-async def test_sensor_energy_produced_entity_exists(
+async def test_sensor_energy_exported_entity_exists(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_api_client: MagicMock,
 ) -> None:
-    """Test energy discharged sensor entity exists."""
+    """Test energy exported sensor entity exists."""
     await setup_integration(hass, mock_config_entry)
 
-    state = hass.states.get("sensor.system_energy_discharged")
+    state = hass.states.get("sensor.system_energy_exported")
     assert state is not None
     assert state.attributes.get("device_class") == "energy"
     assert state.attributes.get("unit_of_measurement") == UnitOfEnergy.KILO_WATT_HOUR
