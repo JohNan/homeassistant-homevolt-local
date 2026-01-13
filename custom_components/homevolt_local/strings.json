@@ -36,6 +36,12 @@
       "energy_charged": {
         "name": "Energy charged"
       },
+      "energy_produced": {
+        "name": "Energy produced"
+      },
+      "energy_consumed": {
+        "name": "Energy consumed"
+      },
       "rated_capacity": {
         "name": "Rated capacity"
       },

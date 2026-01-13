@@ -57,7 +57,10 @@ def _safe_float(value: Any) -> float | None:
 
 
 def _normalize_energy_val(value: Any) -> float | None:
-    """Return absolute energy value (or None if invalid)."""
+    """Return absolute energy value (or None if invalid).
+
+    For sensor data that is already in kWh (floats from the API).
+    """
     v = _safe_float(value)
     if v is None:
         return None
@@ -65,7 +68,10 @@ def _normalize_energy_val(value: Any) -> float | None:
 
 
 def _raw_energy_val(value: Any) -> float | None:
-    """Return raw (signed) energy value or None."""
+    """Return raw (signed) energy value or None.
+
+    For sensor data that is already in kWh (floats from the API).
+    """
     return _safe_float(value)
 
 
@@ -292,12 +298,40 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         value_fn=lambda data: data.aggregated.ems_data.power,
     ),
     HomevoltSensorEntityDescription(
-        key="energy_produced",
-        translation_key="energy_discharged",
+        key="energy_exported",
+        translation_key="energy_exported",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        icon="mdi:battery-positive",
+        icon="mdi:home-export-outline",
+        value_fn=lambda data: _normalize_energy_val(
+            data.aggregated.ems_aggregate.exported_kwh
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            data.aggregated.ems_aggregate.exported_kwh
+        ),
+    ),
+    HomevoltSensorEntityDescription(
+        key="energy_imported",
+        translation_key="energy_imported",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        icon="mdi:home-import-outline",
+        value_fn=lambda data: _normalize_energy_val(
+            data.aggregated.ems_aggregate.imported_kwh
+        ),
+        raw_value_fn=lambda data: _raw_energy_val(
+            data.aggregated.ems_aggregate.imported_kwh
+        ),
+    ),
+    HomevoltSensorEntityDescription(
+        key="energy_produced",
+        translation_key="energy_produced",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        icon="mdi:battery-arrow-up",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_data.energy_produced
         ),
@@ -307,11 +341,11 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
     ),
     HomevoltSensorEntityDescription(
         key="energy_consumed",
-        translation_key="energy_charged",
+        translation_key="energy_consumed",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        icon="mdi:battery-negative",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        icon="mdi:battery-arrow-down",
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_data.energy_consumed
         ),
@@ -1082,7 +1116,7 @@ async def async_setup_entry(
                     ems_index=idx,
                 )
             )
-            # Add an energy produced sensor for each device
+            # Add an energy discharged sensor for each device
             sensors.append(
                 HomevoltSensor(
                     coordinator,
@@ -1094,17 +1128,17 @@ async def async_setup_entry(
                         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-positive",
                         value_fn=lambda data, i=idx: _normalize_energy_val(
-                            data.ems[i].ems_data.energy_produced
+                            data.ems[i].ems_aggregate.exported_kwh
                         ),
                         raw_value_fn=lambda data, i=idx: _raw_energy_val(
-                            data.ems[i].ems_data.energy_produced
+                            data.ems[i].ems_aggregate.exported_kwh
                         ),
                         device_specific=True,
                     ),
                     ems_index=idx,
                 )
             )
-            # Add an energy consumed sensor for each device
+            # Add an energy charged sensor for each device
             sensors.append(
                 HomevoltSensor(
                     coordinator,
@@ -1116,10 +1150,10 @@ async def async_setup_entry(
                         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-negative",
                         value_fn=lambda data, i=idx: _normalize_energy_val(
-                            data.ems[i].ems_data.energy_consumed
+                            data.ems[i].ems_aggregate.imported_kwh
                         ),
                         raw_value_fn=lambda data, i=idx: _raw_energy_val(
-                            data.ems[i].ems_data.energy_consumed
+                            data.ems[i].ems_aggregate.imported_kwh
                         ),
                         device_specific=True,
                     ),

@@ -64,6 +64,29 @@ The integration uses unique identifiers for each device based on their internal 
 
 This integration detects and creates separate devices for each Energy Management System (EMS) unit and sensor found in your Homevolt Local system. Each device has its own set of sensors, and there are also aggregated sensors that show combined data from all devices.
 
+### Understanding Energy Data Sources
+
+The integration provides two different views of energy data:
+
+- **`ems_aggregate`** - System-level energy flow through the inverter/EMS (includes solar passthrough, conversion losses)
+- **`ems_data`** - Battery-specific energy (what actually goes in/out of the battery cells)
+
+```
+                    ┌─────────────────────────────────┐
+   Grid ──────────► │                                 │ ──────► Home
+                    │   INVERTER/EMS                  │
+   Solar ─────────► │   (ems_aggregate tracks here)   │ ──────► Grid Export
+                    │                                 │
+                    │         ▼           ▲           │
+                    │    ┌─────────────────┐          │
+                    │    │    BATTERY      │          │
+                    │    │ (ems_data here) │          │
+                    │    └─────────────────┘          │
+                    └─────────────────────────────────┘
+```
+
+This explains why `ems_aggregate.exported_kwh` may be higher than `ems_aggregate.imported_kwh` - solar energy can flow directly to the home or grid without being "imported" through the battery.
+
 ### Aggregated Sensors
 
 These sensors show combined data from all EMS units:

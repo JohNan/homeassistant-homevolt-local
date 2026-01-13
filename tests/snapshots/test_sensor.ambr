@@ -189,23 +189,43 @@
       }),
       'state': 'unknown',
     }),
-    'sensor.system_energy_charged': dict({
+    'sensor.system_energy_consumed': dict({
       'attributes': dict({
         'device_class': 'energy',
-        'friendly_name': 'System Energy charged',
-        'icon': 'mdi:battery-negative',
+        'friendly_name': 'System Energy consumed',
+        'icon': 'mdi:battery-arrow-down',
+        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+        'unit_of_measurement': <UnitOfEnergy.WATT_HOUR: 'Wh'>,
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_energy_exported': dict({
+      'attributes': dict({
+        'device_class': 'energy',
+        'friendly_name': 'System Energy exported',
+        'icon': 'mdi:home-export-outline',
         'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
         'unit_of_measurement': <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
       }),
       'state': 'unknown',
     }),
-    'sensor.system_energy_discharged': dict({
+    'sensor.system_energy_imported': dict({
       'attributes': dict({
         'device_class': 'energy',
-        'friendly_name': 'System Energy discharged',
-        'icon': 'mdi:battery-positive',
+        'friendly_name': 'System Energy imported',
+        'icon': 'mdi:home-import-outline',
         'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
         'unit_of_measurement': <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
+      }),
+      'state': 'unknown',
+    }),
+    'sensor.system_energy_produced': dict({
+      'attributes': dict({
+        'device_class': 'energy',
+        'friendly_name': 'System Energy produced',
+        'icon': 'mdi:battery-arrow-up',
+        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
+        'unit_of_measurement': <UnitOfEnergy.WATT_HOUR: 'Wh'>,
       }),
       'state': 'unknown',
     }),
