@@ -24,9 +24,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_AGGREGATED,
@@ -41,6 +39,7 @@ from .const import (
     SENSOR_TYPE_SOLAR,
 )
 from .coordinator import HomevoltDataUpdateCoordinator
+from .entity import HomevoltEntity
 from .models import HomevoltData
 
 _LOGGER = logging.getLogger(__name__)
@@ -304,6 +303,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-export-outline",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_aggregate.exported_kwh
         ),
@@ -318,6 +318,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-import-outline",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             data.aggregated.ems_aggregate.imported_kwh
         ),
@@ -393,6 +394,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-import",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             next(
                 (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
@@ -415,6 +417,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:transmission-tower-export",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             next(
                 (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_GRID),
@@ -434,7 +437,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="grid_rssi",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-        state_class=SensorStateClass.MEASUREMENT,
         icon_fn=lambda data: _rssi_icon_for_sensor(data, SENSOR_TYPE_GRID),
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
@@ -448,7 +450,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="grid_pdr",
         translation_key="packet_delivery_rate",
         native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
@@ -483,6 +484,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             next(
                 (
@@ -513,6 +515,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:solar-power-variant-outline",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             next(
                 (
@@ -540,7 +543,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="solar_rssi",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-        state_class=SensorStateClass.MEASUREMENT,
         icon_fn=lambda data: _rssi_icon_for_sensor(data, SENSOR_TYPE_SOLAR),
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
@@ -554,7 +556,6 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         key="solar_pdr",
         translation_key="packet_delivery_rate",
         native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:signal-variant",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: next(
@@ -589,6 +590,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-import-outline",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             next(
                 (s.energy_imported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
@@ -611,6 +613,7 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         icon="mdi:home-export-outline",
+        entity_registry_enabled_default=False,
         value_fn=lambda data: _normalize_energy_val(
             next(
                 (s.energy_exported for s in data.sensors if s.type == SENSOR_TYPE_LOAD),
@@ -629,10 +632,9 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
 )
 
 
-class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEntity):
+class HomevoltSensor(HomevoltEntity, SensorEntity):
     """Representation of a Homevolt sensor."""
 
-    _attr_has_entity_name = True
     entity_description: HomevoltSensorEntityDescription
 
     def __init__(
@@ -644,253 +646,82 @@ class HomevoltSensor(CoordinatorEntity[HomevoltDataUpdateCoordinator], SensorEnt
         bms_index: int | None = None,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator)
+        super().__init__(
+            coordinator,
+            ems_index=ems_index,
+            sensor_index=sensor_index,
+            bms_index=bms_index,
+        )
         self.entity_description = description
-        self.ems_index = ems_index
-        self.sensor_index = sensor_index
-        self.bms_index = bms_index
         self._extra_attributes: dict[str, Any] = {}
 
         # Create a unique ID based on the device properties if available
+        self._attr_unique_id = self._generate_unique_id(description.key)
+
+    def _generate_unique_id(self, key: str) -> str:
+        """Generate a unique ID for this sensor."""
+        coordinator = self.coordinator
+
         if (
-            bms_index is not None
-            and ems_index is not None
+            self.bms_index is not None
+            and self.ems_index is not None
             and coordinator.data
             and coordinator.data.ems
         ):
             # BMS (Battery) sensor - use ems ecu_id + bms serial for unique ID
             try:
-                ems_device = coordinator.data.ems[ems_index]
-                ecu_id = ems_device.ecu_id or f"unknown_{ems_index}"
-                bms_info = (
-                    ems_device.bms_info[bms_index] if ems_device.bms_info else None
-                )
-                bms_serial = (
-                    bms_info.serial_number
-                    if bms_info and bms_info.serial_number
-                    else f"bms_{bms_index}"
-                )
-                self._attr_unique_id = (
-                    f"{DOMAIN}_{description.key}_bms_{ecu_id}_{bms_serial}"
-                )
-            except IndexError:
-                self._attr_unique_id = (
-                    f"{DOMAIN}_{description.key}_bms_{ems_index}_{bms_index}"
-                )
-        elif ems_index is not None and coordinator.data and coordinator.data.ems:
-            try:
-                # Use the ecu_id for a consistent unique ID
-                # across different IP addresses
-                ems_device = coordinator.data.ems[ems_index]
-                ecu_id = ems_device.ecu_id or f"unknown_{ems_index}"
-                self._attr_unique_id = f"{DOMAIN}_{description.key}_ems_{ecu_id}"
-            except IndexError:
-                # Fallback to a generic unique ID if we can't get the ecu_id
-                self._attr_unique_id = f"{DOMAIN}_{description.key}_ems_{ems_index}"
-        elif sensor_index is not None and coordinator.data and coordinator.data.sensors:
-            try:
-                # Use the euid for a consistent unique ID across different IP addresses
-                sensor_data = coordinator.data.sensors[sensor_index]
-                euid = sensor_data.euid
-                # Check for null/default euid (all zeros = virtual sensor)
-                # For these, use main device ID + sensor type for uniqueness
-                if not euid or euid == "0000000000000000":
-                    main_id = self.coordinator.get_main_device_id()
-                    sensor_type = sensor_data.type
-                    if not sensor_type:
-                        # This is unexpected - virtual sensors should have a type
-                        # Log warning so users know about potential data issues
-                        _LOGGER.warning(
-                            "Sensor at index %s has null EUID but no type. "
-                            "This may cause entity migration issues. "
-                            "Using fallback unique ID.",
-                            sensor_index,
-                        )
-                        sensor_type = f"sensor_{sensor_index}"
-                    self._attr_unique_id = (
-                        f"{DOMAIN}_{description.key}_{main_id}_{sensor_type}"
-                    )
-                else:
-                    self._attr_unique_id = f"{DOMAIN}_{description.key}_sensor_{euid}"
-            except IndexError:
-                # Fallback to a generic unique ID if we can't get the euid
-                self._attr_unique_id = (
-                    f"{DOMAIN}_{description.key}_sensor_{sensor_index}"
-                )
-        else:
-            # For aggregated sensors, use the first ecu_id for a stable unique ID
-            # that doesn't change when IP changes
-            main_id = self.coordinator.get_main_device_id()
-            self._attr_unique_id = f"{DOMAIN}_{description.key}_{main_id}"
-
-        self._attr_device_info = self.device_info
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information about this Homevolt device."""
-        # Main aggregated device ID - use ecu_id for consistency across IP changes
-        main_device_id = f"homevolt_{self.coordinator.get_main_device_id()}"
-
-        # BMS (Battery) device - sub-device of the Inverter
-        if (
-            self.bms_index is not None
-            and self.ems_index is not None
-            and self.coordinator.data
-            and self.coordinator.data.ems
-        ):
-            try:
-                ems_device = self.coordinator.data.ems[self.ems_index]
+                ems_device = coordinator.data.ems[self.ems_index]
                 ecu_id = ems_device.ecu_id or f"unknown_{self.ems_index}"
-                inverter_device_id = f"ems_{ecu_id}"
-
-                # Get BMS info for this battery
                 bms_info = (
-                    ems_device.bms_info[self.bms_index]
-                    if ems_device.bms_info and len(ems_device.bms_info) > self.bms_index
-                    else None
+                    ems_device.bms_info[self.bms_index] if ems_device.bms_info else None
                 )
                 bms_serial = (
                     bms_info.serial_number
                     if bms_info and bms_info.serial_number
                     else f"bms_{self.bms_index}"
                 )
-                bms_fw = bms_info.fw_version if bms_info else ""
-                bms_id = bms_info.id + 1 if bms_info else self.bms_index + 1
-                inverter_num = self.ems_index + 1
-
-                return DeviceInfo(
-                    identifiers={(DOMAIN, f"bms_{ecu_id}_{bms_serial}")},
-                    translation_key="battery",
-                    translation_placeholders={
-                        "inverter_num": str(inverter_num),
-                        "battery_num": str(bms_id),
-                    },
-                    manufacturer="Homevolt",
-                    model="Battery Module",
-                    entry_type=DeviceEntryType.SERVICE,
-                    via_device=(DOMAIN, inverter_device_id),  # Link to Inverter
-                    sw_version=bms_fw,
-                    hw_version=bms_serial,
-                )
+                return f"{DOMAIN}_{key}_bms_{ecu_id}_{bms_serial}"
             except IndexError:
-                return DeviceInfo(
-                    identifiers={
-                        (DOMAIN, f"bms_unknown_{self.ems_index}_{self.bms_index}")
-                    },
-                    translation_key="battery",
-                    translation_placeholders={
-                        "inverter_num": str(self.ems_index + 1),
-                        "battery_num": str(self.bms_index + 1),
-                    },
-                    manufacturer="Homevolt",
-                    model="Battery Module",
-                    entry_type=DeviceEntryType.SERVICE,
-                    via_device=(DOMAIN, main_device_id),
-                )
-        elif (
-            self.ems_index is not None
-            and self.coordinator.data
-            and self.coordinator.data.ems
-        ):
-            # Get device-specific information from the ems data
+                return f"{DOMAIN}_{key}_bms_{self.ems_index}_{self.bms_index}"
+
+        elif self.ems_index is not None and coordinator.data and coordinator.data.ems:
             try:
-                ems_device = self.coordinator.data.ems[self.ems_index]
+                ems_device = coordinator.data.ems[self.ems_index]
                 ecu_id = ems_device.ecu_id or f"unknown_{self.ems_index}"
-                serial_number = (
-                    ems_device.inv_info.serial_number if ems_device.inv_info else ""
-                )
-
-                # Try to get more detailed information for the device name
-                fw_version = (
-                    ems_device.ems_info.fw_version if ems_device.ems_info else ""
-                )
-
-                # Use the ecu_id as the unique identifier, which should be consistent
-                # across different IP addresses for the same physical device
-                return DeviceInfo(
-                    identifiers={(DOMAIN, f"ems_{ecu_id}")},
-                    translation_key="inverter",
-                    translation_placeholders={"inverter_num": str(self.ems_index + 1)},
-                    manufacturer="Homevolt",
-                    model=f"Energy Management System {fw_version}",
-                    entry_type=DeviceEntryType.SERVICE,
-                    via_device=(DOMAIN, main_device_id),  # Link to the main device
-                    sw_version=fw_version,
-                    hw_version=serial_number,
-                )
+                return f"{DOMAIN}_{key}_ems_{ecu_id}"
             except IndexError:
-                # Fallback to a generic device info if we can't get specific info
-                return DeviceInfo(
-                    identifiers={(DOMAIN, f"ems_unknown_{self.ems_index}")},
-                    translation_key="inverter",
-                    translation_placeholders={"inverter_num": str(self.ems_index + 1)},
-                    manufacturer="Homevolt",
-                    model="Energy Management System",
-                    entry_type=DeviceEntryType.SERVICE,
-                    via_device=(DOMAIN, main_device_id),  # Link to the main device
-                )
+                return f"{DOMAIN}_{key}_ems_{self.ems_index}"
+
         elif (
             self.sensor_index is not None
-            and self.coordinator.data
-            and self.coordinator.data.sensors
+            and coordinator.data
+            and coordinator.data.sensors
         ):
-            # Get device-specific information from the sensors data
             try:
-                sensor_data = self.coordinator.data.sensors[self.sensor_index]
-                sensor_type = sensor_data.type or "unknown"
-                node_id = sensor_data.node_id
-                euid = sensor_data.euid or "unknown"
-
-                # Capitalize the first letter of the sensor type for the name
-                sensor_type_name = sensor_type.capitalize()
-
-                # Map sensor type to translation key
-                translation_key_map = {
-                    "grid": "grid",
-                    "solar": "solar",
-                    "load": "load",
-                }
-                device_translation_key = translation_key_map.get(sensor_type.lower())
-
-                # Use the euid as the unique identifier, which should be consistent
-                # across different IP addresses for the same physical sensor
-                if device_translation_key:
-                    return DeviceInfo(
-                        identifiers={(DOMAIN, f"sensor_{euid}")},
-                        translation_key=device_translation_key,
-                        manufacturer="Homevolt",
-                        model=f"{sensor_type_name} Sensor (Node {node_id})",
-                        entry_type=DeviceEntryType.SERVICE,
-                        via_device=(DOMAIN, main_device_id),  # Link to the main device
-                    )
+                sensor_data = coordinator.data.sensors[self.sensor_index]
+                euid = sensor_data.euid
+                # Check for null/default euid (all zeros = virtual sensor)
+                if not euid or euid == "0000000000000000":
+                    main_id = coordinator.get_main_device_id()
+                    sensor_type = sensor_data.type
+                    if not sensor_type:
+                        _LOGGER.warning(
+                            "Sensor at index %s has null EUID but no type. "
+                            "This may cause entity migration issues. "
+                            "Using fallback unique ID.",
+                            self.sensor_index,
+                        )
+                        sensor_type = f"sensor_{self.sensor_index}"
+                    return f"{DOMAIN}_{key}_{main_id}_{sensor_type}"
                 else:
-                    return DeviceInfo(
-                        identifiers={(DOMAIN, f"sensor_{euid}")},
-                        name=sensor_type_name,
-                        manufacturer="Homevolt",
-                        model=f"{sensor_type_name} Sensor (Node {node_id})",
-                        entry_type=DeviceEntryType.SERVICE,
-                        via_device=(DOMAIN, main_device_id),  # Link to the main device
-                    )
+                    return f"{DOMAIN}_{key}_sensor_{euid}"
             except IndexError:
-                # Fallback to a generic device info if we can't get specific info
-                return DeviceInfo(
-                    identifiers={(DOMAIN, f"sensor_unknown_{self.sensor_index}")},
-                    name=f"Sensor {self.sensor_index + 1}",
-                    manufacturer="Homevolt",
-                    model="Sensor",
-                    entry_type=DeviceEntryType.SERVICE,
-                    via_device=(DOMAIN, main_device_id),  # Link to the main device
-                )
+                return f"{DOMAIN}_{key}_sensor_{self.sensor_index}"
+
         else:
-            # For aggregated sensors or if no ems_index or sensor_index is provided
-            return DeviceInfo(
-                identifiers={(DOMAIN, main_device_id)},
-                translation_key="system",
-                manufacturer="Homevolt",
-                model="Energy Management System",
-                entry_type=DeviceEntryType.SERVICE,
-            )
+            # For aggregated sensors
+            main_id = coordinator.get_main_device_id()
+            return f"{DOMAIN}_{key}_{main_id}"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
