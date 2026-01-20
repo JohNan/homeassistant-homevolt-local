@@ -62,14 +62,17 @@ async def test_sensor_energy_exported_entity_exists(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_api_client: MagicMock,
+    entity_registry: er.EntityRegistry,
 ) -> None:
-    """Test energy exported sensor entity exists."""
+    """Test energy exported sensor entity exists but is disabled by default."""
     await setup_integration(hass, mock_config_entry)
 
-    state = hass.states.get("sensor.system_energy_exported")
-    assert state is not None
-    assert state.attributes.get("device_class") == "energy"
-    assert state.attributes.get("unit_of_measurement") == UnitOfEnergy.KILO_WATT_HOUR
+    # This sensor is disabled by default, so check entity registry instead of state
+    entry = entity_registry.async_get("sensor.system_energy_exported")
+    assert entry is not None
+    assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    assert entry.original_device_class == "energy"
+    assert entry.unit_of_measurement == UnitOfEnergy.KILO_WATT_HOUR
 
 
 async def test_sensor_entity_registry(
