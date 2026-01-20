@@ -1,31 +1,10 @@
 # serializer version: 1
 # name: test_sensor_states_snapshot
   dict({
-    'sensor.grid_energy_exported': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'Grid Energy exported',
-        'icon': 'mdi:transmission-tower-export',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.grid_energy_imported': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'Grid Energy imported',
-        'icon': 'mdi:transmission-tower-import',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
-      }),
-      'state': 'unknown',
-    }),
     'sensor.grid_packet_delivery_rate': dict({
       'attributes': dict({
         'friendly_name': 'Grid Packet delivery rate',
         'icon': 'mdi:signal-variant',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': '%',
       }),
       'state': 'unknown',
@@ -44,7 +23,6 @@
       'attributes': dict({
         'device_class': 'signal_strength',
         'friendly_name': 'Grid Signal strength',
-        'state_class': <SensorStateClass.MEASUREMENT: 'measurement'>,
         'unit_of_measurement': 'dBm',
       }),
       'state': 'unknown',
@@ -196,26 +174,6 @@
         'icon': 'mdi:battery-arrow-down',
         'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
         'unit_of_measurement': <UnitOfEnergy.WATT_HOUR: 'Wh'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.system_energy_exported': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'System Energy exported',
-        'icon': 'mdi:home-export-outline',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
-      }),
-      'state': 'unknown',
-    }),
-    'sensor.system_energy_imported': dict({
-      'attributes': dict({
-        'device_class': 'energy',
-        'friendly_name': 'System Energy imported',
-        'icon': 'mdi:home-import-outline',
-        'state_class': <SensorStateClass.TOTAL_INCREASING: 'total_increasing'>,
-        'unit_of_measurement': <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
       }),
       'state': 'unknown',
     }),
