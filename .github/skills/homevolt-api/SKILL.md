@@ -16,17 +16,41 @@ The full API documentation is included in this skill folder:
 - [PARAMETERS_REFERENCE.md](./PARAMETERS_REFERENCE.md) - System parameters reference (41 parameters)
 - [BATTERY_CONTROL_GUIDE.md](./BATTERY_CONTROL_GUIDE.md) - Battery control and scheduling
 
-**Official Source**: https://github.com/tibber/homevolt-local-api-doc
-
-## API Endpoints
+## API Endpoints (Core)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/ems.json` | GET | Battery, solar, inverter, grid status - main data source |
 | `/status.json` | GET | System health and operational status |
-| `/schedule.json` | GET | Current charging schedule |
-| `/params.json` | GET | System parameters |
+| `/logs.json` | GET | System logs |
+| `/params.json` | GET/POST | List/set system parameters |
+| `/node_params.json` | GET/POST | Get/set remote node parameters |
+| `/validatepassword` | POST | Validate password strength |
+| `/wifiscan.json` | GET | WiFi scan results |
 | `/nodes.json` | GET | Network nodes (CT clamps) |
+| `/node_data.json` | GET | Node electrical data |
+| `/node_metrics.json` | GET | Node metrics |
+| `/ct.json` | GET | Clamp measurements |
+| `/ct_data.json` | GET | Versioned clamp data |
+| `/ct_history.json` | GET | Clamp history |
+| `/ems.json` | GET | EMS status (battery, solar, inverter, grid) |
+| `/ems_history.json` | GET | Historical EMS data |
+| `/ems_pid_history.json` | GET | PID controller debug data |
+| `/schedule.json` | GET | Charging schedule |
+| `/pid.json` | GET | PID controller state |
+| `/efr_hub_status.json` | GET | Hub operational status |
+| `/ecu_sense.json` | GET | Sensor function assignments |
+| `/error_report.json` | GET | Current active errors |
+| `/error_history.json` | GET | Historical error log |
+| `/ota_manifest.json` | GET | OTA updates & progress |
+| `/update` | POST | Upload firmware binary |
+| `/spiffs/{filepath}` | GET | Download file |
+| `/upload/spiffs/{filepath}` | POST | Upload file |
+| `/delete/spiffs/{filepath}` | POST | Delete file |
+| `/console.json` | POST | Execute CLI command |
+| `/mains_data.json` | GET | Mains voltage/frequency |
+| `/warp_ping.json` | GET | Mesh network ping stats |
+
+**Official Source**: https://github.com/tibber/homevolt-local-api-doc
 
 ## Energy Data Fields
 
@@ -34,8 +58,8 @@ The full API documentation is included in this skill folder:
 
 | Field | Location | Unit | Description |
 |-------|----------|------|-------------|
-| `ems_aggregate.imported_kwh` | Per inverter | kWh | Energy charged INTO battery |
-| `ems_aggregate.exported_kwh` | Per inverter | kWh | Energy discharged FROM battery |
+| `ems_aggregate.imported_kwh` | Per EMS entry | kWh | Energy charged INTO battery |
+| `ems_aggregate.exported_kwh` | Per EMS entry | kWh | Energy discharged FROM battery |
 
 **Important**: Use `ems_aggregate` values for battery energy - they match the Homevolt UI exactly.
 
@@ -43,17 +67,17 @@ The full API documentation is included in this skill folder:
 
 | Field | Location | Unit | Description |
 |-------|----------|------|-------------|
-| `ems_data.energy_consumed` | Per inverter | Wh | Raw inverter energy in counter |
-| `ems_data.energy_produced` | Per inverter | Wh | Raw inverter energy out counter |
+| `ems_data.energy_consumed` | Per EMS entry | Wh | Raw inverter energy in counter |
+| `ems_data.energy_produced` | Per EMS entry | Wh | Raw inverter energy out counter |
 
 **Note**: `ems_data` values are raw inverter counters and will differ from `ems_aggregate` by ~15-20% due to inverter efficiency losses.
 
-### CT Sensor Energy
+### Sensor Energy (Function Sensors)
 
 | Field | Location | Unit | Description |
 |-------|----------|------|-------------|
-| `sensors[].energy_imported` | CT sensors | kWh | Energy imported (grid/solar/load) |
-| `sensors[].energy_exported` | CT sensors | kWh | Energy exported (grid/solar/load) |
+| `sensors[].energy_imported` | Function sensors | kWh | Energy imported (grid/solar/load/battery) |
+| `sensors[].energy_exported` | Function sensors | kWh | Energy exported (grid/solar/load/battery) |
 
 ## Power Sign Conventions
 
@@ -74,65 +98,61 @@ Understanding the sign conventions is critical for correct sensor implementation
 
 ```
 /ems.json
-├── inverters[]           # Array of inverter objects
-│   ├── battery_soc       # Battery state of charge (%)
-│   ├── battery_soh       # Battery state of health (%)
-│   ├── battery_power     # Current battery power (W)
-│   ├── ems_data          # Raw inverter counters
-│   │   ├── energy_consumed   # Wh (raw counter)
-│   │   └── energy_produced   # Wh (raw counter)
-│   └── aggregated        # Processed totals (USE THESE!)
-│       └── ems_aggregate
-│           ├── imported_kwh  # kWh charged
-│           └── exported_kwh  # kWh discharged
-├── sensors[]             # CT clamp sensors
-│   ├── name              # "grid", "solar", "load"
-│   ├── power             # Current power (W)
-│   ├── energy_imported   # kWh imported
-│   └── energy_exported   # kWh exported
-└── totals                # System-wide totals
-    ├── battery_soc       # Average SOC
-    ├── battery_power     # Total battery power
-    ├── grid_power        # Total grid power
-    └── solar_power       # Total solar power
+├── ems[]                 # Array of EMS entries (per ECU/inverter stack)
+│   ├── ems_info           # Firmware, rated capacity/power
+│   ├── ems_data           # Live measurements & raw counters
+│   │   ├── power             # Current power (W)
+│   │   ├── energy_produced   # Wh (raw counter)
+│   │   └── energy_consumed   # Wh (raw counter)
+│   └── ems_aggregate      # Processed totals (USE THESE!)
+│       ├── imported_kwh   # kWh charged
+│       └── exported_kwh   # kWh discharged
+├── aggregated            # System-wide aggregated EMS values
+│   └── ems_data           # Combined EMS data (power, energy, SOC, etc.)
+└── sensors[]             # Function sensors (grid/solar/load/battery)
+    ├── function           # "grid", "solar", "load", "battery"
+    ├── total_power        # Current power (W)
+    ├── energy_imported    # kWh imported
+    └── energy_exported    # kWh exported
 ```
 
 ## Example API Response Structure
 
 ```json
 {
-  "inverters": [
+  "ems": [
     {
-      "serial": "INV001",
-      "battery_soc": 75,
-      "battery_soh": 100,
-      "battery_power": -1500,
-      "ems_data": {
-        "energy_consumed": 5234567,
-        "energy_produced": 4567890
+      "ems_info": {
+        "fw_version": "v31.4",
+        "rated_capacity": 13304,
+        "rated_power": 6000
       },
-      "aggregated": {
-        "ems_aggregate": {
-          "imported_kwh": 4234.5,
-          "exported_kwh": 3890.2
-        }
+      "ems_data": {
+        "power": -7,
+        "energy_produced": 3602110,
+        "energy_consumed": 4050829
+      },
+      "ems_aggregate": {
+        "imported_kwh": 916.37,
+        "exported_kwh": 4197.55
       }
     }
   ],
+  "aggregated": {
+    "ems_data": {
+      "power": -10,
+      "energy_produced": 5237025,
+      "energy_consumed": 6177742
+    }
+  },
   "sensors": [
     {
-      "name": "grid",
-      "power": 500,
-      "energy_imported": 12345.6,
-      "energy_exported": 1234.5
+      "function": "grid",
+      "total_power": 3282,
+      "energy_imported": 8337.99,
+      "energy_exported": 7485
     }
-  ],
-  "totals": {
-    "battery_soc": 75,
-    "battery_power": -1500,
-    "grid_power": 500,
-    "solar_power": 2000
-  }
+  ]
 }
 ```
 
@@ -143,32 +163,32 @@ Understanding the sign conventions is critical for correct sensor implementation
 ```python
 # For total system
 total_charged = sum(
-    inv.aggregated.ems_aggregate.imported_kwh
-    for inv in data.inverters
+    ems.ems_aggregate.imported_kwh
+    for ems in data.ems
 )
 total_discharged = sum(
-    inv.aggregated.ems_aggregate.exported_kwh
-    for inv in data.inverters
+    ems.ems_aggregate.exported_kwh
+    for ems in data.ems
 )
 
-# Per inverter
-for inv in data.inverters:
-    charged = inv.aggregated.ems_aggregate.imported_kwh      # kWh
-    discharged = inv.aggregated.ems_aggregate.exported_kwh   # kWh
+# Per EMS entry
+for ems in data.ems:
+    charged = ems.ems_aggregate.imported_kwh      # kWh
+    discharged = ems.ems_aggregate.exported_kwh   # kWh
 ```
 
 ### Getting Grid/Solar/Load Power
 
 ```python
-def get_sensor_by_name(sensors: list, name: str):
-    return next((s for s in sensors if s.name == name), None)
+def get_sensor_by_function(sensors: list, function: str):
+    return next((s for s in sensors if s.function == function), None)
 
-grid = get_sensor_by_name(data.sensors, "grid")
-solar = get_sensor_by_name(data.sensors, "solar")
-load = get_sensor_by_name(data.sensors, "load")
-
-grid_power = grid.power if grid else 0
-solar_power = solar.power if solar else 0
+grid = get_sensor_by_function(data.sensors, "grid")
+solar = get_sensor_by_function(data.sensors, "solar")
+load = get_sensor_by_function(data.sensors, "load")
+grid_power = grid.total_power if grid else 0
+solar_power = solar.total_power if solar else 0
+load_power = load.total_power if load else 0
 ```
 
 ## Sensor Classification for Home Assistant
