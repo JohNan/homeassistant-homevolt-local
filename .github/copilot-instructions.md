@@ -167,3 +167,4 @@ _attr_translation_key = "temperature"
 - [Home Assistant Developer Docs](https://developers.home-assistant.io/)
 - [Integration Quality Scale](https://developers.home-assistant.io/docs/integration_quality_scale_index)
 - [HACS Documentation](https://hacs.xyz/)
+- [Tibber Homevolt Local API](https://github.com/tibber/homevolt-local-api-doc) - Official API documentation
