@@ -13,7 +13,7 @@ jobs:
       contents: write
     steps:
       - name: ⤵️ Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: 🔢 Get version from tag
         id: version
@@ -35,7 +35,7 @@ jobs:
         run: zip -r ../../homevolt_local.zip .
 
       - name: 📎 Upload release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.6.2
         with:
           files: homevolt_local.zip
         env:
