@@ -13,7 +13,7 @@ jobs:
     name: 📦 HACS
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v7"
+      - uses: "actions/checkout@v7.0.1"
       - name: HACS validation
         uses: "hacs/action@main"
         with:
@@ -23,6 +23,6 @@ jobs:
     name: 🏠 Hassfest
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v7"
+      - uses: "actions/checkout@v7.0.1"
       - name: Run hassfest
         uses: "home-assistant/actions/hassfest@master"
