@@ -10,6 +10,9 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy.assertion import SnapshotAssertion
 
+from custom_components.homevolt_local.models import HomevoltData
+from custom_components.homevolt_local.sensor import _normalize_energy_val
+
 from .conftest import setup_integration
 
 
@@ -134,3 +137,29 @@ async def test_sensor_states_snapshot(
             }
 
     assert states == snapshot
+
+
+async def test_inverter_energy_charged_discharged_mapping() -> None:
+    """Test inverter energy charged and discharged sensors map correctly to ems_aggregate."""
+    raw_data = {
+        "aggregated": {
+            "ems_data": {"state_str": "idle", "power": 0},
+            "ems_aggregate": {"imported_kwh": 100.0, "exported_kwh": 200.0},
+        },
+        "ems": [
+            {
+                "ecu_id": "test_ecu_123",
+                "ems_data": {"state_str": "idle", "power": 0},
+                "ems_aggregate": {"imported_kwh": 350.5, "exported_kwh": 780.2},
+                "inv_info": {"serial_number": "INV001"},
+            }
+        ],
+        "sensors": [],
+    }
+    data = HomevoltData.from_dict(raw_data)
+
+    # Inverter charged sensor should use exported_kwh (energy exported into battery)
+    assert _normalize_energy_val(data.ems[0].ems_aggregate.exported_kwh) == 780.2
+
+    # Inverter discharged sensor should use imported_kwh (energy imported from battery)
+    assert _normalize_energy_val(data.ems[0].ems_aggregate.imported_kwh) == 350.5

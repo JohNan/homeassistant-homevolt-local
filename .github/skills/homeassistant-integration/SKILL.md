@@ -187,6 +187,7 @@ def mock_config_entry() -> MockConfigEntry:
         unique_id="device_unique_id",
     )
 
+
 async def test_sensor_value(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,

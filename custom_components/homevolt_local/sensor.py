@@ -269,9 +269,9 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         translation_key="error",
         icon="mdi:battery-unknown",
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.aggregated.error_str[:255]
-        if data.aggregated.error_str
-        else None,
+        value_fn=lambda data: (
+            data.aggregated.error_str[:255] if data.aggregated.error_str else None
+        ),
         attrs_fn=lambda data: {
             ATTR_ERROR_STR: data.aggregated.error_str,
         },
@@ -282,11 +282,12 @@ SENSOR_DESCRIPTIONS: tuple[HomevoltSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=PERCENTAGE,
         icon_fn=_battery_icon_for_aggregated,
-        value_fn=lambda data: float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc)
-        / 100
-        if data.aggregated.bms_data
-        and len(data.aggregated.bms_data) > BMS_DATA_INDEX_TOTAL
-        else None,
+        value_fn=lambda data: (
+            float(data.aggregated.bms_data[BMS_DATA_INDEX_TOTAL].soc) / 100
+            if data.aggregated.bms_data
+            and len(data.aggregated.bms_data) > BMS_DATA_INDEX_TOTAL
+            else None
+        ),
     ),
     HomevoltSensorEntityDescription(
         key="power",
@@ -904,10 +905,9 @@ async def async_setup_entry(
                         device_class=SensorDeviceClass.TEMPERATURE,
                         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
                         state_class=SensorStateClass.MEASUREMENT,
-                        value_fn=lambda data, i=idx: float(
-                            data.ems[i].ems_data.sys_temp
-                        )
-                        / 10,
+                        value_fn=lambda data, i=idx: (
+                            float(data.ems[i].ems_data.sys_temp) / 10
+                        ),
                         icon="mdi:thermometer",
                         device_specific=True,
                     ),
@@ -924,8 +924,9 @@ async def async_setup_entry(
                         native_unit_of_measurement=PERCENTAGE,
                         state_class=SensorStateClass.MEASUREMENT,
                         icon_fn=lambda data, i=idx: _battery_icon_for_ems(data, i),
-                        value_fn=lambda data, i=idx: float(data.ems[i].ems_data.soc_avg)
-                        / 100,
+                        value_fn=lambda data, i=idx: (
+                            float(data.ems[i].ems_data.soc_avg) / 100
+                        ),
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -959,10 +960,10 @@ async def async_setup_entry(
                         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-positive",
                         value_fn=lambda data, i=idx: _normalize_energy_val(
-                            data.ems[i].ems_aggregate.exported_kwh
+                            data.ems[i].ems_aggregate.imported_kwh
                         ),
                         raw_value_fn=lambda data, i=idx: _raw_energy_val(
-                            data.ems[i].ems_aggregate.exported_kwh
+                            data.ems[i].ems_aggregate.imported_kwh
                         ),
                         device_specific=True,
                     ),
@@ -981,10 +982,10 @@ async def async_setup_entry(
                         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
                         icon="mdi:battery-negative",
                         value_fn=lambda data, i=idx: _normalize_energy_val(
-                            data.ems[i].ems_aggregate.imported_kwh
+                            data.ems[i].ems_aggregate.exported_kwh
                         ),
                         raw_value_fn=lambda data, i=idx: _raw_energy_val(
-                            data.ems[i].ems_aggregate.imported_kwh
+                            data.ems[i].ems_aggregate.exported_kwh
                         ),
                         device_specific=True,
                     ),
@@ -999,9 +1000,11 @@ async def async_setup_entry(
                         key=f"ems_{idx + 1}_error",
                         translation_key="error",
                         icon="mdi:battery-unknown",
-                        value_fn=lambda data, i=idx: data.ems[i].error_str[:255]
-                        if data.ems[i].error_str
-                        else None,
+                        value_fn=lambda data, i=idx: (
+                            data.ems[i].error_str[:255]
+                            if data.ems[i].error_str
+                            else None
+                        ),
                         attrs_fn=lambda data, i=idx: {
                             ATTR_ERROR_STR: data.ems[i].error_str,
                         },
@@ -1021,9 +1024,9 @@ async def async_setup_entry(
                         device_class=SensorDeviceClass.ENERGY_STORAGE,
                         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                         icon="mdi:battery-plus",
-                        value_fn=lambda data, i=idx: data.ems[
-                            i
-                        ].ems_info.rated_capacity,
+                        value_fn=lambda data, i=idx: (
+                            data.ems[i].ems_info.rated_capacity
+                        ),
                         device_specific=True,
                     ),
                     ems_index=idx,
@@ -1056,9 +1059,9 @@ async def async_setup_entry(
                                 device_class=SensorDeviceClass.ENERGY_STORAGE,
                                 native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                                 icon="mdi:battery-plus",
-                                value_fn=lambda data, i=idx, j=bms_idx: data.ems[i]
-                                .bms_info[j]
-                                .rated_cap,
+                                value_fn=lambda data, i=idx, j=bms_idx: (
+                                    data.ems[i].bms_info[j].rated_cap
+                                ),
                                 device_specific=True,
                             ),
                             ems_index=idx,
@@ -1076,10 +1079,9 @@ async def async_setup_entry(
                                 icon_fn=lambda data, i=idx, j=bms_idx: (
                                     _battery_icon_for_bms(data, i, j)
                                 ),
-                                value_fn=lambda data, i=idx, j=bms_idx: float(
-                                    data.ems[i].bms_data[j].soc
-                                )
-                                / 100,
+                                value_fn=lambda data, i=idx, j=bms_idx: (
+                                    float(data.ems[i].bms_data[j].soc) / 100
+                                ),
                                 device_specific=True,
                             ),
                             ems_index=idx,
@@ -1096,10 +1098,9 @@ async def async_setup_entry(
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement=UnitOfTemperature.CELSIUS,
                                 state_class=SensorStateClass.MEASUREMENT,
-                                value_fn=lambda data, i=idx, j=bms_idx: float(
-                                    data.ems[i].bms_data[j].tmax
-                                )
-                                / 10,
+                                value_fn=lambda data, i=idx, j=bms_idx: (
+                                    float(data.ems[i].bms_data[j].tmax) / 10
+                                ),
                                 icon="mdi:thermometer-chevron-up",
                                 device_specific=True,
                             ),
@@ -1117,10 +1118,9 @@ async def async_setup_entry(
                                 device_class=SensorDeviceClass.TEMPERATURE,
                                 native_unit_of_measurement=UnitOfTemperature.CELSIUS,
                                 state_class=SensorStateClass.MEASUREMENT,
-                                value_fn=lambda data, i=idx, j=bms_idx: float(
-                                    data.ems[i].bms_data[j].tmin
-                                )
-                                / 10,
+                                value_fn=lambda data, i=idx, j=bms_idx: (
+                                    float(data.ems[i].bms_data[j].tmin) / 10
+                                ),
                                 icon="mdi:thermometer-chevron-down",
                                 device_specific=True,
                             ),

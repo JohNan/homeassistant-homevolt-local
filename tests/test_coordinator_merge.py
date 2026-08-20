@@ -248,3 +248,111 @@ async def test_api_returns_duplicate_sensors(
         f"Expected 1 (duplicates filtered), got {solar_count}. "
         "Deduplication should remove duplicate sensors from the API response."
     )
+
+
+async def test_multi_host_aggregates_system_energy_and_power(
+    hass: HomeAssistant,
+) -> None:
+    """Test that energy and power from multiple hosts are combined in aggregated data."""
+    coordinator = HomevoltDataUpdateCoordinator(
+        hass=hass,
+        logger=logging.getLogger(__name__),
+        entry_id="test_entry",
+        resources=[
+            "http://192.168.1.100/ems.json",
+            "http://192.168.1.101/ems.json",
+        ],
+        hosts=["http://192.168.1.100", "http://192.168.1.101"],
+        main_host="http://192.168.1.100",
+        ecu_id=None,
+        username=None,
+        password=None,
+        verify_ssl=False,
+        update_interval=timedelta(seconds=30),
+    )
+
+    host1_response = {
+        "aggregated": {
+            "ems_data": {
+                "state_str": "charging",
+                "soc_avg": 40.0,
+                "power": 1500.0,
+                "energy_produced": 2000.0,
+                "energy_consumed": 3000.0,
+            },
+            "ems_aggregate": {"imported_kwh": 50.0, "exported_kwh": 100.0},
+            "ems_info": {"rated_capacity": 6000, "rated_power": 3000},
+            "error_str": "",
+            "bms_data": [{"soc": 4000}, {"soc": 4000}],
+        },
+        "ems": [
+            {
+                "ecu_id": "ecu_host_1",
+                "ems_data": {
+                    "state_str": "charging",
+                    "soc_avg": 40.0,
+                    "power": 1500.0,
+                    "energy_produced": 2000.0,
+                    "energy_consumed": 3000.0,
+                },
+                "ems_aggregate": {"imported_kwh": 50.0, "exported_kwh": 100.0},
+                "ems_info": {"rated_capacity": 6000, "rated_power": 3000},
+                "error_str": "",
+                "bms_data": [{"soc": 4000}],
+            }
+        ],
+        "sensors": [],
+    }
+
+    host2_response = {
+        "aggregated": {
+            "ems_data": {
+                "state_str": "charging",
+                "soc_avg": 60.0,
+                "power": 1200.0,
+                "energy_produced": 1000.0,
+                "energy_consumed": 1500.0,
+            },
+            "ems_aggregate": {"imported_kwh": 30.0, "exported_kwh": 70.0},
+            "ems_info": {"rated_capacity": 6000, "rated_power": 3000},
+            "error_str": "",
+            "bms_data": [{"soc": 6000}, {"soc": 6000}],
+        },
+        "ems": [
+            {
+                "ecu_id": "ecu_host_2",
+                "ems_data": {
+                    "state_str": "charging",
+                    "soc_avg": 60.0,
+                    "power": 1200.0,
+                    "energy_produced": 1000.0,
+                    "energy_consumed": 1500.0,
+                },
+                "ems_aggregate": {"imported_kwh": 30.0, "exported_kwh": 70.0},
+                "ems_info": {"rated_capacity": 6000, "rated_power": 3000},
+                "error_str": "",
+                "bms_data": [{"soc": 6000}],
+            }
+        ],
+        "sensors": [],
+    }
+
+    async def mock_fetch(resource: str) -> dict[str, Any]:
+        if "192.168.1.100" in resource:
+            return host1_response
+        return host2_response
+
+    with patch.object(coordinator, "_fetch_resource_data", side_effect=mock_fetch):
+        with patch.object(coordinator, "_fetch_schedule_data", return_value={}):
+            data = await coordinator._async_update_data()
+
+    assert len(data.ems) == 2
+    # Verify combined system-level energy and power
+    assert data.aggregated.ems_data.energy_produced == 3000.0
+    assert data.aggregated.ems_data.energy_consumed == 4500.0
+    assert data.aggregated.ems_data.power == 2700.0
+    assert data.aggregated.ems_data.soc_avg == 50.0
+    assert data.aggregated.ems_aggregate.imported_kwh == 80.0
+    assert data.aggregated.ems_aggregate.exported_kwh == 170.0
+    assert data.aggregated.ems_info.rated_capacity == 12000
+    assert data.aggregated.ems_info.rated_power == 6000

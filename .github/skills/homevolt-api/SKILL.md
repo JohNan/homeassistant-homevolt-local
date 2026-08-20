@@ -58,8 +58,8 @@ The full API documentation is included in this skill folder:
 
 | Field | Location | Unit | Description |
 |-------|----------|------|-------------|
-| `ems_aggregate.imported_kwh` | Per EMS entry | kWh | Energy charged INTO battery |
-| `ems_aggregate.exported_kwh` | Per EMS entry | kWh | Energy discharged FROM battery |
+| `ems_aggregate.exported_kwh` | Per EMS entry | kWh | Energy charged INTO battery (inverter export to DC) |
+| `ems_aggregate.imported_kwh` | Per EMS entry | kWh | Energy discharged FROM battery (inverter import from DC) |
 
 **Important**: Use `ems_aggregate` values for battery energy - they match the Homevolt UI exactly.
 
@@ -162,19 +162,13 @@ Understanding the sign conventions is critical for correct sensor implementation
 
 ```python
 # For total system
-total_charged = sum(
-    ems.ems_aggregate.imported_kwh
-    for ems in data.ems
-)
-total_discharged = sum(
-    ems.ems_aggregate.exported_kwh
-    for ems in data.ems
-)
+total_charged = sum(ems.ems_aggregate.exported_kwh for ems in data.ems)
+total_discharged = sum(ems.ems_aggregate.imported_kwh for ems in data.ems)
 
 # Per EMS entry
 for ems in data.ems:
-    charged = ems.ems_aggregate.imported_kwh      # kWh
-    discharged = ems.ems_aggregate.exported_kwh   # kWh
+    charged = ems.ems_aggregate.exported_kwh  # kWh
+    discharged = ems.ems_aggregate.imported_kwh  # kWh
 ```
 
 ### Getting Grid/Solar/Load Power
@@ -182,6 +176,7 @@ for ems in data.ems:
 ```python
 def get_sensor_by_function(sensors: list, function: str):
     return next((s for s in sensors if s.function == function), None)
+
 
 grid = get_sensor_by_function(data.sensors, "grid")
 solar = get_sensor_by_function(data.sensors, "solar")
