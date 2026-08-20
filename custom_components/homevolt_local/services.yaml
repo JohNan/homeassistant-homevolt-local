@@ -2,8 +2,6 @@ add_schedule:
   name: Add Schedule
   description: Adds a new schedule entry to the Homevolt battery.
   target:
-    device:
-      integration: homevolt_local
     entity:
       integration: homevolt_local
   fields:
@@ -120,8 +118,6 @@ set_schedule:
   name: Set Schedule / Battery Mode
   description: Sets immediate battery control mode or replaces the current schedule with a single new entry.
   target:
-    device:
-      integration: homevolt_local
     entity:
       integration: homevolt_local
   fields:
@@ -238,8 +234,6 @@ delete_schedule:
   name: Delete Schedule
   description: Deletes a specific schedule entry by its ID.
   target:
-    device:
-      integration: homevolt_local
     entity:
       integration: homevolt_local
   fields:
@@ -256,7 +250,5 @@ clear_schedules:
   name: Clear All Schedules
   description: Clears all active schedule entries on the Homevolt battery.
   target:
-    device:
-      integration: homevolt_local
     entity:
       integration: homevolt_local
