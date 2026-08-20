@@ -63,6 +63,11 @@
       "min_temperature": {
         "name": "Minimum temperature"
       }
+    },
+    "switch": {
+      "local_mode": {
+        "name": "Local mode"
+      }
     }
   },
   "config": {

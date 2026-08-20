@@ -26,7 +26,9 @@ from .const import (
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_READ_TIMEOUT,
     DOMAIN,
+    PARAMS_RESOURCE_PATH,
     SCHEDULE_FETCH_INTERVAL,
+    SCHEDULE_RESOURCE_PATH,
 )
 from .models import HomevoltData, ScheduleEntry
 
@@ -88,6 +90,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             "entries": [],
             "count": 0,
             "current_id": None,
+            "local_mode": False,
         }
 
         super().__init__(hass, logger, name=DOMAIN, update_interval=update_interval)
@@ -218,13 +221,21 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
     async def _fetch_schedule_data(self) -> dict[str, Any]:
         """Fetch schedule data from the main host."""
         url = self._build_url(self.main_host, CONSOLE_RESOURCE_PATH)
-        schedule_info: dict[str, Any] = {}
+        schedule_info: dict[str, Any] = {
+            "entries": [],
+            "count": 0,
+            "current_id": None,
+            "local_mode": self._cached_schedule_data.get("local_mode", False),
+        }
 
         try:
             response_text = await self._async_post(
                 url, {"cmd": "sched_list"}, self._auth
             )
             schedule_info = self._parse_schedule_data(response_text)
+            schedule_info["local_mode"] = self._cached_schedule_data.get(
+                "local_mode", False
+            )
 
         except TimeoutError:
             self.logger.error("Timeout fetching schedule data from %s", url)
@@ -232,6 +243,15 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             self.logger.error("Error fetching schedule data: %s", e)
         except (ValueError, KeyError) as e:
             self.logger.error("Error parsing schedule data: %s", e)
+
+        # Also attempt to retrieve local_mode from /schedule.json endpoint
+        try:
+            sched_url = self._build_url(self.main_host, SCHEDULE_RESOURCE_PATH)
+            sched_json = await self._async_get(sched_url, self._auth)
+            if isinstance(sched_json, dict) and "local_mode" in sched_json:
+                schedule_info["local_mode"] = bool(sched_json["local_mode"])
+        except (TimeoutError, aiohttp.ClientError, ValueError, KeyError) as err:
+            self.logger.debug("Could not fetch local_mode from %s: %s", sched_url, err)
 
         return schedule_info
 
@@ -334,6 +354,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         merged_dict_data["schedules"] = schedule_data.get("entries", [])
         merged_dict_data["schedule_count"] = schedule_data.get("count")
         merged_dict_data["schedule_current_id"] = schedule_data.get("current_id")
+        merged_dict_data["local_mode"] = schedule_data.get("local_mode", False)
 
         self._first_refresh_done = True
         return HomevoltData.from_dict(merged_dict_data)
@@ -566,3 +587,22 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
                 self.logger.debug("Merged sensors: %s", sensor_summary)
 
         return merged_data
+
+    async def async_execute_command(self, command: str) -> str:
+        """Execute a console command via /console.json."""
+        url = self._build_url(self.main_host, CONSOLE_RESOURCE_PATH)
+        return await self._async_post(url, {"cmd": command}, self._auth)
+
+    async def async_set_local_mode(self, enabled: bool) -> None:
+        """Enable or disable local mode to prevent remote schedule overrides."""
+        url = self._build_url(self.main_host, PARAMS_RESOURCE_PATH)
+        val_str = "1" if enabled else "0"
+        await self._async_post(
+            url,
+            {"k": "settings_local", "v": val_str, "store": "1"},
+            self._auth,
+        )
+        self._cached_schedule_data["local_mode"] = enabled
+        if self.data:
+            self.data.local_mode = enabled
+        self.async_update_listeners()

@@ -170,18 +170,18 @@ async def test_migrate_sensor_unique_ids_null_euid(
         entity_id = entity_registry.async_get_entity_id(
             Platform.SENSOR, DOMAIN, new_uid
         )
-        assert (
-            entity_id is not None
-        ), f"Entity with new unique_id {new_uid} should exist"
+        assert entity_id is not None, (
+            f"Entity with new unique_id {new_uid} should exist"
+        )
 
     # Verify old unique IDs no longer exist
     for old_uid in old_unique_ids:
         entity_id = entity_registry.async_get_entity_id(
             Platform.SENSOR, DOMAIN, old_uid
         )
-        assert (
-            entity_id is None
-        ), f"Entity with old unique_id {old_uid} should not exist"
+        assert entity_id is None, (
+            f"Entity with old unique_id {old_uid} should not exist"
+        )
 
 
 async def test_migrate_sensor_unique_ids_real_euid_unchanged(
