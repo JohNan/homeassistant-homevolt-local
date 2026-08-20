@@ -606,6 +606,7 @@ class HomevoltData:
     schedules: list[ScheduleEntry] = field(default_factory=list)
     schedule_count: int | None = None
     schedule_current_id: str | None = None
+    local_mode: bool = False
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> HomevoltData:
@@ -621,4 +622,5 @@ class HomevoltData:
             schedules=data.get("schedules", []),  # Will be populated by the coordinator
             schedule_count=data.get("schedule_count"),
             schedule_current_id=data.get("schedule_current_id"),
+            local_mode=bool(data.get("local_mode", False)),
         )

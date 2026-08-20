@@ -21,6 +21,8 @@ SCHEDULE_FETCH_INTERVAL = 4
 
 EMS_RESOURCE_PATH = "/ems.json"
 CONSOLE_RESOURCE_PATH = "/console.json"
+PARAMS_RESOURCE_PATH = "/params.json"
+SCHEDULE_RESOURCE_PATH = "/schedule.json"
 
 # Attribute keys from the API response
 ATTR_EMS = "ems"

@@ -6,7 +6,6 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_PASSWORD,
@@ -19,7 +18,6 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_HOST,
@@ -27,23 +25,129 @@ from .const import (
     CONF_MAIN_HOST,
     CONF_RESOURCE,
     CONF_RESOURCES,
-    DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_READ_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    EMS_RESOURCE_PATH,
 )
 from .coordinator import HomevoltDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
 
 # Null euid used by virtual/calculated sensors (like load)
 NULL_EUID = "0000000000000000"
 
 # Sensor types that may have null euid
 VIRTUAL_SENSOR_TYPES = ["load", "grid", "solar"]
+
+
+def _format_time(val: Any) -> str:
+    """Format datetime or string to ISO datetime format."""
+    if hasattr(val, "strftime"):
+        return val.strftime("%Y-%m-%dT%H:%M:%S")
+    return str(val)
+
+
+def _build_schedule_command(cmd_name: str, data: dict[str, Any]) -> str:
+    """Build a console command string for sched_set or sched_add."""
+    mode = data.get("mode")
+    parts = [f"{cmd_name} {mode}"]
+
+    if "from_time" in data and data["from_time"] is not None:
+        parts.append(f"--from {_format_time(data['from_time'])}")
+
+    if "to_time" in data and data["to_time"] is not None:
+        parts.append(f"--to {_format_time(data['to_time'])}")
+
+    if "setpoint" in data and data["setpoint"] is not None:
+        parts.append(f"-s {data['setpoint']}")
+
+    if "max_charge" in data and data["max_charge"] is not None:
+        parts.append(f"-c {data['max_charge']}")
+
+    if "max_discharge" in data and data["max_discharge"] is not None:
+        parts.append(f"-d {data['max_discharge']}")
+
+    if "min_soc" in data and data["min_soc"] is not None:
+        parts.append(f"--min {data['min_soc']}")
+
+    if "max_soc" in data and data["max_soc"] is not None:
+        parts.append(f"--max {data['max_soc']}")
+
+    if "import_limit" in data and data["import_limit"] is not None:
+        parts.append(f"-l {data['import_limit']}")
+
+    if "export_limit" in data and data["export_limit"] is not None:
+        parts.append(f"-x {data['export_limit']}")
+
+    if data.get("offline") is True:
+        parts.append("-o")
+
+    return " ".join(parts)
+
+
+def _get_coordinators_for_service_call(
+    hass: HomeAssistant, call: ServiceCall
+) -> list[HomevoltDataUpdateCoordinator]:
+    """Extract coordinators from service call targets."""
+    domain_data = hass.data.get(DOMAIN, {})
+    if not domain_data:
+        _LOGGER.error("No Homevolt Local integrations found")
+        return []
+
+    coordinators: list[HomevoltDataUpdateCoordinator] = []
+
+    # Extract target device_ids
+    target_device_ids = call.data.get("device_id", [])
+    if isinstance(target_device_ids, str):
+        target_device_ids = [target_device_ids]
+    elif not isinstance(target_device_ids, list):
+        target_device_ids = list(target_device_ids)
+    else:
+        target_device_ids = list(target_device_ids)
+
+    # Extract target entity_ids
+    target_entity_ids = call.data.get("entity_id", [])
+    if isinstance(target_entity_ids, str):
+        target_entity_ids = [target_entity_ids]
+    elif not isinstance(target_entity_ids, list):
+        target_entity_ids = list(target_entity_ids)
+
+    # Map entity_ids to config_entries / device_ids
+    if target_entity_ids:
+        entity_reg = er.async_get(hass)
+        for entity_id in target_entity_ids:
+            ent = entity_reg.async_get(entity_id)
+            if ent:
+                if ent.config_entry_id and ent.config_entry_id in domain_data:
+                    coord = domain_data[ent.config_entry_id]
+                    if coord not in coordinators:
+                        coordinators.append(coord)
+                elif ent.device_id and ent.device_id not in target_device_ids:
+                    target_device_ids.append(ent.device_id)
+
+    # Map device_ids to coordinators
+    if target_device_ids:
+        device_reg = dr.async_get(hass)
+        for dev_id in target_device_ids:
+            dev = device_reg.async_get(dev_id)
+            if dev:
+                for entry_id in dev.config_entries:
+                    if entry_id in domain_data:
+                        coord = domain_data[entry_id]
+                        if coord not in coordinators:
+                            coordinators.append(coord)
+
+    # If no specific target was found, apply to all loaded coordinators
+    if (
+        not coordinators
+        and not call.data.get("device_id")
+        and not call.data.get("entity_id")
+    ):
+        coordinators = list(domain_data.values())
+
+    return coordinators
 
 
 async def _async_migrate_sensor_unique_ids(
@@ -186,91 +290,87 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    async def async_add_schedule(call: ServiceCall) -> None:
-        """Handle the service call to add a schedule."""
-        device_registry = dr.async_get(hass)
-        device_ids = call.data.get("device_id")
-
-        if not device_ids:
-            _LOGGER.error("No device_id provided")
+    async def async_handle_add_schedule(call: ServiceCall) -> None:
+        """Handle adding a schedule entry."""
+        coordinators = _get_coordinators_for_service_call(hass, call)
+        if not coordinators:
+            _LOGGER.error("No Homevolt coordinator found for add_schedule call")
             return
 
-        # Ensure device_ids is a list
-        if not isinstance(device_ids, list):
-            device_ids = [device_ids]
-
-        for device_id in device_ids:
-            device_entry = device_registry.async_get(device_id)
-            if not device_entry:
-                _LOGGER.error("Device not found: %s", device_id)
-                continue
-
-            # Find the config entry associated with this device
-            config_entry_id = next(iter(device_entry.config_entries), None)
-            if not config_entry_id:
-                _LOGGER.error(
-                    "Device %s is not associated with a config entry", device_id
-                )
-                continue
-
-            config_entry = hass.config_entries.async_get_entry(config_entry_id)
-            if not config_entry:
-                _LOGGER.error("Config entry not found for device %s", device_id)
-                continue
-
-            # Extract connection details from the config entry
-            host = config_entry.data.get(CONF_MAIN_HOST)
-            username = (config_entry.data.get(CONF_USERNAME) or "").strip() or None
-            password = (config_entry.data.get(CONF_PASSWORD) or "").strip() or None
-            verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
-            read_timeout = config_entry.data.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
-
-            if not host:
-                _LOGGER.error("No host found for device %s", device_id)
-                continue
-
-            mode = call.data["mode"]
-            setpoint = call.data["setpoint"]
-            from_time = call.data["from_time"].strftime("%Y-%m-%dT%H:%M:%S")
-            to_time = call.data["to_time"].strftime("%Y-%m-%dT%H:%M:%S")
-
-            command = (
-                f"sched_add {mode} --setpoint {setpoint} "
-                f"--from={from_time} --to={to_time}"
-            )
-            url = f"{host}{EMS_RESOURCE_PATH}"
-
+        command = _build_schedule_command("sched_add", call.data)
+        for coord in coordinators:
             try:
-                auth = (
-                    aiohttp.BasicAuth(username, password)
-                    if username and password
-                    else None
+                await coord.async_execute_command(command)
+                await coord.async_request_refresh()
+            except Exception as err:
+                _LOGGER.error(
+                    "Failed to execute '%s' on %s: %s", command, coord.main_host, err
                 )
-                timeout = aiohttp.ClientTimeout(
-                    connect=DEFAULT_CONNECT_TIMEOUT, sock_read=read_timeout
-                )
-                session = async_get_clientsession(hass, verify_ssl=verify_ssl)
-                async with session.post(
-                    url, data={"cmd": command}, auth=auth, timeout=timeout
-                ) as response:
-                    response_text = await response.text()
-                    if response.status == 200:
-                        _LOGGER.info(
-                            "Successfully sent command to %s: %s", host, command
-                        )
-                    else:
-                        _LOGGER.error(
-                            "Failed to send command to %s. Status: %s, Response: %s",
-                            host,
-                            response.status,
-                            response_text,
-                        )
-            except TimeoutError:
-                _LOGGER.error("Timeout sending command to %s", host)
-            except aiohttp.ClientError as e:
-                _LOGGER.error("Error sending command to %s: %s", host, e)
 
-    hass.services.async_register(DOMAIN, "add_schedule", async_add_schedule)
+    async def async_handle_set_schedule(call: ServiceCall) -> None:
+        """Handle setting/replacing immediate battery schedule."""
+        coordinators = _get_coordinators_for_service_call(hass, call)
+        if not coordinators:
+            _LOGGER.error("No Homevolt coordinator found for set_schedule call")
+            return
+
+        command = _build_schedule_command("sched_set", call.data)
+        for coord in coordinators:
+            try:
+                await coord.async_execute_command(command)
+                await coord.async_request_refresh()
+            except Exception as err:
+                _LOGGER.error(
+                    "Failed to execute '%s' on %s: %s", command, coord.main_host, err
+                )
+
+    async def async_handle_delete_schedule(call: ServiceCall) -> None:
+        """Handle deleting a schedule entry by ID."""
+        coordinators = _get_coordinators_for_service_call(hass, call)
+        if not coordinators:
+            _LOGGER.error("No Homevolt coordinator found for delete_schedule call")
+            return
+
+        schedule_id = call.data.get("schedule_id")
+        command = f"sched_del {schedule_id}"
+        for coord in coordinators:
+            try:
+                await coord.async_execute_command(command)
+                await coord.async_request_refresh()
+            except Exception as err:
+                _LOGGER.error(
+                    "Failed to execute '%s' on %s: %s", command, coord.main_host, err
+                )
+
+    async def async_handle_clear_schedules(call: ServiceCall) -> None:
+        """Handle clearing all schedules."""
+        coordinators = _get_coordinators_for_service_call(hass, call)
+        if not coordinators:
+            _LOGGER.error("No Homevolt coordinator found for clear_schedules call")
+            return
+
+        command = "sched_clear"
+        for coord in coordinators:
+            try:
+                await coord.async_execute_command(command)
+                await coord.async_request_refresh()
+            except Exception as err:
+                _LOGGER.error(
+                    "Failed to execute '%s' on %s: %s", command, coord.main_host, err
+                )
+
+    if not hass.services.has_service(DOMAIN, "add_schedule"):
+        hass.services.async_register(DOMAIN, "add_schedule", async_handle_add_schedule)
+    if not hass.services.has_service(DOMAIN, "set_schedule"):
+        hass.services.async_register(DOMAIN, "set_schedule", async_handle_set_schedule)
+    if not hass.services.has_service(DOMAIN, "delete_schedule"):
+        hass.services.async_register(
+            DOMAIN, "delete_schedule", async_handle_delete_schedule
+        )
+    if not hass.services.has_service(DOMAIN, "clear_schedules"):
+        hass.services.async_register(
+            DOMAIN, "clear_schedules", async_handle_clear_schedules
+        )
 
     return True
 
@@ -279,5 +379,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
+        if not hass.data[DOMAIN]:
+            for svc in (
+                "add_schedule",
+                "set_schedule",
+                "delete_schedule",
+                "clear_schedules",
+            ):
+                hass.services.async_remove(DOMAIN, svc)
 
     return unload_ok

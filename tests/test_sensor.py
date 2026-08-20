@@ -124,6 +124,8 @@ async def test_sensor_states_snapshot(
     # Create a dict of entity_id -> state for snapshot comparison
     states = {}
     for entry in entries:
+        if entry.domain != "sensor":
+            continue
         state = hass.states.get(entry.entity_id)
         if state:
             states[entry.entity_id] = {

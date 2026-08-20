@@ -1,6 +1,6 @@
 add_schedule:
   name: Add Schedule
-  description: Adds a new schedule to the Homevolt battery.
+  description: Adds a new schedule entry to the Homevolt battery.
   target:
     entity:
       integration: homevolt_local
@@ -12,28 +12,26 @@ add_schedule:
       selector:
         select:
           options:
-            - label: "Idle"
+            - label: "Idle (0)"
               value: "0"
-            - label: "Charging"
+            - label: "Inverter Charge (1)"
               value: "1"
-            - label: "Discharging"
+            - label: "Inverter Discharge (2)"
               value: "2"
-            - label: "Charging with grid setpoint"
+            - label: "Grid Charge (3)"
               value: "3"
-            - label: "Discharging with grid setpoint"
+            - label: "Grid Discharge (4)"
               value: "4"
-            - label: "Grid discharging/charging"
+            - label: "Grid Charge/Discharge (5)"
               value: "5"
-    setpoint:
-      name: Setpoint
-      description: The power setpoint in watts.
-      required: true
-      example: 0
-      selector:
-        number:
-          min: -22000
-          max: 22000
-          unit_of_measurement: "W"
+            - label: "Frequency Reserve (6)"
+              value: "6"
+            - label: "Solar Charge (7)"
+              value: "7"
+            - label: "Solar Charge/Discharge (8)"
+              value: "8"
+            - label: "Full Solar Export (9)"
+              value: "9"
     from_time:
       name: From Time
       description: The start datetime for the schedule.
@@ -46,3 +44,211 @@ add_schedule:
       required: true
       selector:
         datetime:
+    setpoint:
+      name: Setpoint
+      description: Power setpoint in Watts (-s).
+      required: false
+      selector:
+        number:
+          min: -22000
+          max: 22000
+          unit_of_measurement: "W"
+    max_charge:
+      name: Max Charge Power
+      description: Maximum charge power in Watts (-c).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 22000
+          unit_of_measurement: "W"
+    max_discharge:
+      name: Max Discharge Power
+      description: Maximum discharge power in Watts (-d).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 22000
+          unit_of_measurement: "W"
+    min_soc:
+      name: Minimum SOC
+      description: Minimum state of charge percentage (--min).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    max_soc:
+      name: Maximum SOC
+      description: Maximum state of charge percentage (--max).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    import_limit:
+      name: Import Limit
+      description: Grid import limit in Watts (-l).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 50000
+          unit_of_measurement: "W"
+    export_limit:
+      name: Export Limit
+      description: Grid export limit in Watts (-x).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 50000
+          unit_of_measurement: "W"
+    offline:
+      name: Offline
+      description: Take inverter offline during idle mode (-o).
+      required: false
+      selector:
+        boolean:
+
+set_schedule:
+  name: Set Schedule / Battery Mode
+  description: Sets immediate battery control mode or replaces the current schedule with a single new entry.
+  target:
+    entity:
+      integration: homevolt_local
+  fields:
+    mode:
+      name: Mode
+      description: The operational mode for the schedule.
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Idle (0)"
+              value: "0"
+            - label: "Inverter Charge (1)"
+              value: "1"
+            - label: "Inverter Discharge (2)"
+              value: "2"
+            - label: "Grid Charge (3)"
+              value: "3"
+            - label: "Grid Discharge (4)"
+              value: "4"
+            - label: "Grid Charge/Discharge (5)"
+              value: "5"
+            - label: "Frequency Reserve (6)"
+              value: "6"
+            - label: "Solar Charge (7)"
+              value: "7"
+            - label: "Solar Charge/Discharge (8)"
+              value: "8"
+            - label: "Full Solar Export (9)"
+              value: "9"
+    from_time:
+      name: From Time
+      description: Optional start datetime for the schedule.
+      required: false
+      selector:
+        datetime:
+    to_time:
+      name: To Time
+      description: Optional end datetime for the schedule.
+      required: false
+      selector:
+        datetime:
+    setpoint:
+      name: Setpoint
+      description: Power setpoint in Watts (-s).
+      required: false
+      selector:
+        number:
+          min: -22000
+          max: 22000
+          unit_of_measurement: "W"
+    max_charge:
+      name: Max Charge Power
+      description: Maximum charge power in Watts (-c).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 22000
+          unit_of_measurement: "W"
+    max_discharge:
+      name: Max Discharge Power
+      description: Maximum discharge power in Watts (-d).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 22000
+          unit_of_measurement: "W"
+    min_soc:
+      name: Minimum SOC
+      description: Minimum state of charge percentage (--min).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    max_soc:
+      name: Maximum SOC
+      description: Maximum state of charge percentage (--max).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    import_limit:
+      name: Import Limit
+      description: Grid import limit in Watts (-l).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 50000
+          unit_of_measurement: "W"
+    export_limit:
+      name: Export Limit
+      description: Grid export limit in Watts (-x).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 50000
+          unit_of_measurement: "W"
+    offline:
+      name: Offline
+      description: Take inverter offline during idle mode (-o).
+      required: false
+      selector:
+        boolean:
+
+delete_schedule:
+  name: Delete Schedule
+  description: Deletes a specific schedule entry by its ID.
+  target:
+    entity:
+      integration: homevolt_local
+  fields:
+    schedule_id:
+      name: Schedule ID
+      description: The ID of the schedule entry to delete.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 1000
+
+clear_schedules:
+  name: Clear All Schedules
+  description: Clears all active schedule entries on the Homevolt battery.
+  target:
+    entity:
+      integration: homevolt_local
