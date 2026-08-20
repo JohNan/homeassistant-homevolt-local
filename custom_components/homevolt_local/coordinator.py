@@ -17,11 +17,13 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import (
+    ATTR_AGGREGATED,
     ATTR_ECU_ID,
     ATTR_EMS,
     ATTR_EUID,
     ATTR_SENSORS,
     ATTR_TYPE,
+    BMS_DATA_INDEX_TOTAL,
     CONSOLE_RESOURCE_PATH,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_READ_TIMEOUT,
@@ -570,6 +572,62 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         # Update the merged data with all EMS devices and sensors
         merged_data[ATTR_EMS] = all_ems
         merged_data[ATTR_SENSORS] = all_sensors
+
+        # If multiple EMS devices are present, aggregate their stats
+        # for the system-level aggregated device
+        if len(all_ems) > 1:
+            agg = dict(merged_data.get(ATTR_AGGREGATED, {}))
+            agg_ems_data = dict(agg.get("ems_data", {}))
+            agg_ems_info = dict(agg.get("ems_info", {}))
+            agg_ems_aggregate = dict(agg.get("ems_aggregate", {}))
+
+            agg_ems_data["energy_produced"] = sum(
+                e.get("ems_data", {}).get("energy_produced", 0) for e in all_ems
+            )
+            agg_ems_data["energy_consumed"] = sum(
+                e.get("ems_data", {}).get("energy_consumed", 0) for e in all_ems
+            )
+            agg_ems_data["power"] = sum(
+                e.get("ems_data", {}).get("power", 0) for e in all_ems
+            )
+
+            soc_values = [
+                e.get("ems_data", {}).get("soc_avg")
+                for e in all_ems
+                if e.get("ems_data", {}).get("soc_avg") is not None
+            ]
+            if soc_values:
+                agg_ems_data["soc_avg"] = sum(soc_values) / len(soc_values)
+
+            agg_ems_aggregate["imported_kwh"] = sum(
+                e.get("ems_aggregate", {}).get("imported_kwh", 0.0) for e in all_ems
+            )
+            agg_ems_aggregate["exported_kwh"] = sum(
+                e.get("ems_aggregate", {}).get("exported_kwh", 0.0) for e in all_ems
+            )
+
+            agg_ems_info["rated_capacity"] = sum(
+                e.get("ems_info", {}).get("rated_capacity", 0) for e in all_ems
+            )
+            agg_ems_info["rated_power"] = sum(
+                e.get("ems_info", {}).get("rated_power", 0) for e in all_ems
+            )
+
+            # Update aggregated BMS total SOC if present
+            agg_bms_data = list(agg.get("bms_data", []))
+            if agg_bms_data and len(agg_bms_data) > BMS_DATA_INDEX_TOTAL and soc_values:
+                bms_total = dict(agg_bms_data[BMS_DATA_INDEX_TOTAL])
+                avg_soc = sum(soc_values) / len(soc_values)
+                bms_total["soc"] = (
+                    int(avg_soc * 100) if avg_soc <= 100 else int(avg_soc)
+                )
+                agg_bms_data[BMS_DATA_INDEX_TOTAL] = bms_total
+                agg["bms_data"] = agg_bms_data
+
+            agg["ems_data"] = agg_ems_data
+            agg["ems_info"] = agg_ems_info
+            agg["ems_aggregate"] = agg_ems_aggregate
+            merged_data[ATTR_AGGREGATED] = agg
 
         if verbose_log:
             self.logger.debug(
