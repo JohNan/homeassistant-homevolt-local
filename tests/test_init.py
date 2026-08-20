@@ -170,18 +170,18 @@ async def test_migrate_sensor_unique_ids_null_euid(
         entity_id = entity_registry.async_get_entity_id(
             Platform.SENSOR, DOMAIN, new_uid
         )
-        assert (
-            entity_id is not None
-        ), f"Entity with new unique_id {new_uid} should exist"
+        assert entity_id is not None, (
+            f"Entity with new unique_id {new_uid} should exist"
+        )
 
     # Verify old unique IDs no longer exist
     for old_uid in old_unique_ids:
         entity_id = entity_registry.async_get_entity_id(
             Platform.SENSOR, DOMAIN, old_uid
         )
-        assert (
-            entity_id is None
-        ), f"Entity with old unique_id {old_uid} should not exist"
+        assert entity_id is None, (
+            f"Entity with old unique_id {old_uid} should not exist"
+        )
 
 
 async def test_migrate_sensor_unique_ids_real_euid_unchanged(
@@ -410,3 +410,87 @@ async def test_migrate_sensor_unique_ids_logs_skip_when_exists(
         "Cannot migrate" in record.message and "already exists" in record.message
         for record in caplog.records
     ), "Skipped migration should be logged at debug level"
+
+
+async def test_delete_schedule_service(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_api_client: MagicMock,
+) -> None:
+    """Test the delete_schedule service."""
+    from unittest.mock import patch
+
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "custom_components.homevolt_local.async_get_clientsession"
+    ) as mock_session_func:
+        from unittest.mock import AsyncMock
+
+        mock_session = MagicMock()
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.text.return_value = ""
+        mock_session.post.return_value.__aenter__.return_value = mock_response
+        mock_session_func.return_value = mock_session
+
+        await hass.services.async_call(
+            DOMAIN,
+            "delete_schedule",
+            {
+                "schedule_id": 2,
+            },
+            target={"entity_id": "switch.homevolt_local_local_mode_test_ecu_123"},
+            blocking=True,
+        )
+
+        mock_session.post.assert_called_once()
+        args, kwargs = mock_session.post.call_args
+        assert kwargs["data"]["cmd"] == "sched_del 2"
+        assert args[0] == "http://192.168.1.100/console.json"
+
+
+async def test_add_schedule_service(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_api_client: MagicMock,
+) -> None:
+    """Test the add_schedule service."""
+    from unittest.mock import patch
+
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch("custom_components.homevolt_local.async_get_clientsession") as mock_session_func:
+        from unittest.mock import AsyncMock
+        mock_session = MagicMock()
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.text.return_value = ""
+        mock_session.post.return_value.__aenter__.return_value = mock_response
+        mock_session_func.return_value = mock_session
+
+        await hass.services.async_call(
+            DOMAIN,
+            "add_schedule",
+            {
+                "mode": "1",
+                "setpoint": 3000,
+                "max_charge": 2500,
+                "max_discharge": 2000,
+                "min_soc": 20,
+                "max_soc": 80,
+                "from_time": "2025-12-15 23:00:00",
+                "to_time": "2025-12-16 07:00:00",
+            },
+            target={"entity_id": "switch.homevolt_local_local_mode_test_ecu_123"},
+            blocking=True,
+        )
+
+        mock_session.post.assert_called_once()
+        args, kwargs = mock_session.post.call_args
+        assert kwargs["data"]["cmd"] == "sched_add 1 --from=2025-12-15T23:00:00 --to=2025-12-16T07:00:00 -s 3000 -c 2500 -d 2000 --min 20 --max 80"
+        assert args[0] == "http://192.168.1.100/console.json"

@@ -220,5 +220,11 @@
       }),
       'state': 'unknown',
     }),
+    'switch.homevolt_local_local_mode_test_ecu_123': dict({
+      'attributes': dict({
+        'friendly_name': 'System Homevolt test_ecu_123 Local Mode',
+      }),
+      'state': 'off',
+    }),
   })
 # ---

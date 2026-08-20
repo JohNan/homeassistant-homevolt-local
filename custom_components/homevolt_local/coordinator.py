@@ -226,6 +226,21 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             )
             schedule_info = self._parse_schedule_data(response_text)
 
+            # Also get local mode state
+            try:
+                lm_response_text = await self._async_post(
+                    url, {"cmd": "param_get settings_local"}, self._auth
+                )
+                if (
+                    "Parameter 'settings_local' is 1" in lm_response_text
+                    or "1" in lm_response_text.split(":")[-1]
+                ):
+                    schedule_info["local_mode"] = True
+                else:
+                    schedule_info["local_mode"] = False
+            except Exception as e:
+                self.logger.debug("Failed to get settings_local: %s", e)
+
         except TimeoutError:
             self.logger.error("Timeout fetching schedule data from %s", url)
         except aiohttp.ClientError as e:
@@ -240,6 +255,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         schedules = []
         count = 0
         current_id = None
+        local_mode = False
         lines = response_text.splitlines()
 
         summary_pattern = re.compile(
@@ -298,10 +314,15 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
             )
             schedules.append(schedule)
 
+        # Check if local mode is logged.
+        # Wait, the docs say local_mode is in schedule.json.
+        # But we use sched_list via console.json right now!
+        # Get via param_get settings_local.
         return {
             "entries": schedules,
             "count": count,
             "current_id": current_id,
+            "local_mode": local_mode,
         }
 
     async def _async_update_data(self) -> HomevoltData:
@@ -334,6 +355,7 @@ class HomevoltDataUpdateCoordinator(DataUpdateCoordinator[HomevoltData]):
         merged_dict_data["schedules"] = schedule_data.get("entries", [])
         merged_dict_data["schedule_count"] = schedule_data.get("count")
         merged_dict_data["schedule_current_id"] = schedule_data.get("current_id")
+        merged_dict_data["local_mode"] = schedule_data.get("local_mode", False)
 
         self._first_refresh_done = True
         return HomevoltData.from_dict(merged_dict_data)

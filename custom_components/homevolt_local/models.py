@@ -604,6 +604,7 @@ class HomevoltData:
     aggregated: EmsDevice
     sensors: list[SensorData]
     schedules: list[ScheduleEntry] = field(default_factory=list)
+    local_mode: bool = False
     schedule_count: int | None = None
     schedule_current_id: str | None = None
 
@@ -618,7 +619,10 @@ class HomevoltData:
             sensors=[
                 SensorData.from_dict(sensor) for sensor in data.get(ATTR_SENSORS, [])
             ],
-            schedules=data.get("schedules", []),  # Will be populated by the coordinator
+            schedules=data.get("schedules", []),
+            local_mode=data.get(
+                "local_mode", False
+            ),  # Will be populated by the coordinator
             schedule_count=data.get("schedule_count"),
             schedule_current_id=data.get("schedule_current_id"),
         )

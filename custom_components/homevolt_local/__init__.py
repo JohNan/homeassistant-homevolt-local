@@ -17,9 +17,9 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service import async_extract_config_entry_ids
 
 from .const import (
     CONF_HOST,
@@ -27,17 +27,17 @@ from .const import (
     CONF_MAIN_HOST,
     CONF_RESOURCE,
     CONF_RESOURCES,
+    CONSOLE_RESOURCE_PATH,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_READ_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    EMS_RESOURCE_PATH,
 )
 from .coordinator import HomevoltDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
 
 # Null euid used by virtual/calculated sensors (like load)
 NULL_EUID = "0000000000000000"
@@ -188,34 +188,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def async_add_schedule(call: ServiceCall) -> None:
         """Handle the service call to add a schedule."""
-        device_registry = dr.async_get(hass)
-        device_ids = call.data.get("device_id")
-
-        if not device_ids:
-            _LOGGER.error("No device_id provided")
+        try:
+            config_entry_ids = await async_extract_config_entry_ids(call)
+        except Exception as e:
+            _LOGGER.error("Failed to extract config entries: %s", e)
             return
 
-        # Ensure device_ids is a list
-        if not isinstance(device_ids, list):
-            device_ids = [device_ids]
+        if not config_entry_ids:
+            _LOGGER.error("No config entries found for target")
+            return
 
-        for device_id in device_ids:
-            device_entry = device_registry.async_get(device_id)
-            if not device_entry:
-                _LOGGER.error("Device not found: %s", device_id)
-                continue
-
-            # Find the config entry associated with this device
-            config_entry_id = next(iter(device_entry.config_entries), None)
-            if not config_entry_id:
-                _LOGGER.error(
-                    "Device %s is not associated with a config entry", device_id
-                )
-                continue
-
+        for config_entry_id in config_entry_ids:
             config_entry = hass.config_entries.async_get_entry(config_entry_id)
             if not config_entry:
-                _LOGGER.error("Config entry not found for device %s", device_id)
+                _LOGGER.error("Config entry not found: %s", config_entry_id)
                 continue
 
             # Extract connection details from the config entry
@@ -226,19 +212,106 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             read_timeout = config_entry.data.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
 
             if not host:
-                _LOGGER.error("No host found for device %s", device_id)
+                _LOGGER.error("No host found for config entry %s", config_entry_id)
                 continue
 
             mode = call.data["mode"]
-            setpoint = call.data["setpoint"]
-            from_time = call.data["from_time"].strftime("%Y-%m-%dT%H:%M:%S")
-            to_time = call.data["to_time"].strftime("%Y-%m-%dT%H:%M:%S")
+            from_time = call.data["from_time"]
+            to_time = call.data["to_time"]
 
-            command = (
-                f"sched_add {mode} --setpoint {setpoint} "
-                f"--from={from_time} --to={to_time}"
-            )
-            url = f"{host}{EMS_RESOURCE_PATH}"
+            if hasattr(from_time, "strftime"):
+                from_time = from_time.strftime("%Y-%m-%dT%H:%M:%S")
+            elif isinstance(from_time, str):
+                from_time = from_time.replace(" ", "T")
+
+            if hasattr(to_time, "strftime"):
+                to_time = to_time.strftime("%Y-%m-%dT%H:%M:%S")
+            elif isinstance(to_time, str):
+                to_time = to_time.replace(" ", "T")
+
+            command_parts = [f"sched_add {mode}"]
+
+            if from_time:
+                command_parts.append(f"--from={from_time}")
+            if to_time:
+                command_parts.append(f"--to={to_time}")
+            if "setpoint" in call.data:
+                command_parts.append(f"-s {call.data['setpoint']}")
+            if "max_charge" in call.data:
+                command_parts.append(f"-c {call.data['max_charge']}")
+            if "max_discharge" in call.data:
+                command_parts.append(f"-d {call.data['max_discharge']}")
+            if "min_soc" in call.data:
+                command_parts.append(f"--min {call.data['min_soc']}")
+            if "max_soc" in call.data:
+                command_parts.append(f"--max {call.data['max_soc']}")
+
+            command = " ".join(command_parts)
+            url = f"{host}{CONSOLE_RESOURCE_PATH}"
+
+            try:
+                auth = (
+                    aiohttp.BasicAuth(username, password)
+                    if username and password
+                    else None
+                )
+                timeout = aiohttp.ClientTimeout(
+                    connect=DEFAULT_CONNECT_TIMEOUT, sock_read=read_timeout
+                )
+                session = async_get_clientsession(hass, verify_ssl=verify_ssl)
+                async with session.post(
+                    url, data={"cmd": command}, auth=auth, timeout=timeout
+                ) as response:
+                    response_text = await response.text()
+                    if response.status == 200:
+                        _LOGGER.info(
+                            "Successfully sent command to %s: %s", host, command
+                        )
+                    else:
+                        _LOGGER.error(
+                            "Failed to send command to %s. Status: %s, Response: %s",
+                            host,
+                            response.status,
+                            response_text,
+                        )
+            except TimeoutError:
+                _LOGGER.error("Timeout sending command to %s", host)
+            except aiohttp.ClientError as e:
+                _LOGGER.error("Error sending command to %s: %s", host, e)
+
+    async def async_delete_schedule(call: ServiceCall) -> None:
+        """Handle the service call to delete a schedule."""
+        try:
+            config_entry_ids = await async_extract_config_entry_ids(call)
+        except Exception as e:
+            _LOGGER.error("Failed to extract config entries: %s", e)
+            return
+
+        if not config_entry_ids:
+            _LOGGER.error("No config entries found for target")
+            return
+
+        schedule_id = call.data["schedule_id"]
+        command = f"sched_del {schedule_id}"
+
+        for config_entry_id in config_entry_ids:
+            config_entry = hass.config_entries.async_get_entry(config_entry_id)
+            if not config_entry:
+                _LOGGER.error("Config entry not found: %s", config_entry_id)
+                continue
+
+            # Extract connection details from the config entry
+            host = config_entry.data.get(CONF_MAIN_HOST)
+            username = (config_entry.data.get(CONF_USERNAME) or "").strip() or None
+            password = (config_entry.data.get(CONF_PASSWORD) or "").strip() or None
+            verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
+            read_timeout = config_entry.data.get(CONF_TIMEOUT, DEFAULT_READ_TIMEOUT)
+
+            if not host:
+                _LOGGER.error("No host found for config entry %s", config_entry_id)
+                continue
+
+            url = f"{host}{CONSOLE_RESOURCE_PATH}"
 
             try:
                 auth = (
@@ -271,6 +344,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error("Error sending command to %s: %s", host, e)
 
     hass.services.async_register(DOMAIN, "add_schedule", async_add_schedule)
+    hass.services.async_register(DOMAIN, "delete_schedule", async_delete_schedule)
 
     return True
 
