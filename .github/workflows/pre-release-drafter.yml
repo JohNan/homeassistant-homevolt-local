@@ -15,7 +15,7 @@ jobs:
   prerelease:
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@v7.10.0
+      - uses: release-drafter/release-drafter@v7.11.0
         with:
           publish: true
           prerelease: true
